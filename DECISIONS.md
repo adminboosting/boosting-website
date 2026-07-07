@@ -93,3 +93,31 @@ pinned in `packageManager`).
     This is a one-time Phase-0 constraint (no later phase modifies workflow files).
     Vercel's build is the effective gate meanwhile. Activate GitHub Actions by
     granting the scope once and moving the files up a level.
+
+---
+
+## Phase 1 — Data + pricing + public calculator (in progress)
+
+### Pricing engine + catalog (committed)
+
+- **Static catalog is the single source of truth for placeholder pricing**
+  (`lib/catalog/data.ts`). It powers the pure pricing engine directly, so the
+  calculator works on the free tier with zero backend. Once Supabase is wired the
+  DB overrides it (admin-editable); `supabase/seed.sql` will be generated from this
+  same data so the two never drift.
+- **`orders.config` jsonb uses camelCase keys** (`currentRankIndex`, not
+  `current_rank_index`) — the client payload, engine, and DB jsonb all share one
+  shape, avoiding snake/camel mapping. (Spec §6 showed snake_case illustratively.)
+- **Placement/net-win base ETAs** aren't given in the spec; chosen placeholders:
+  `0.8h` per placement game, `0.7h` per net win. Admin-editable later; recorded here
+  per the "choose conventional, record, continue" rule.
+- **Rounding:** half-up (`Math.floor(x + 0.5)`) at each multiply, integer cents
+  throughout. Verified by golden-value unit tests (e.g. `1365 * 15% = 204.75 → 205`).
+- **The lowest rank of each ladder** carries its tier price but is never summed as a
+  step destination (steps start at `current+1`), so it's inert. Above-ceiling ranks
+  are seeded as `isPurchasable: false` divisionless rows for the "contact us" state.
+- **40 golden-value unit tests** cover all four games, cross-tier climbs, LoL LP
+  proration/gain/Flex, every modifier, duo vs piloted, region highs/lows, coupon +
+  loyalty + volume stacking with the 30% cap clamp, store-credit clamps, cashback
+  preview, and every rejection path. A reconcile invariant asserts itemized lines
+  always sum to the charged total.
