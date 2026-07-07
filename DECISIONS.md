@@ -121,3 +121,27 @@ pinned in `packageManager`).
   loyalty + volume stacking with the 30% cap clamp, store-credit clamps, cashback
   preview, and every rejection path. A reconcile invariant asserts itemized lines
   always sum to the charged total.
+
+### /api/quote + public calculator + SEO (committed)
+
+- **`/api/quote`** validates the body with Zod (discriminated union on serviceType),
+  computes via the engine, returns `PricingError` as a 400 with a code, sets
+  `Cache-Control: no-store`. A route test proves attacker-supplied `totalCents`
+  fields are stripped by the schema and the server value wins.
+- **Public site restructured under `app/(marketing)/`** with a shared header/footer
+  layout; the home page moved there. Money pages (`/[game]/[service]`) and game hubs
+  (`/[game]`) are SSG via `generateStaticParams` with 1h ISR, so admin price/content
+  edits (Phase 3) propagate. 12 money pages + 4 hubs prerender.
+- **Calculator** is a client component: debounced (250ms) POST to `/api/quote`,
+  itemized line rendering, ETA range (±20%), cashback preview, volume-discount nudge,
+  coupon field, `aria-live` price announcements, keyboard-operable controls. Checkout
+  button is disabled pending Phase 2. Used native selects/steppers for accessibility;
+  a richer visual ladder is a Phase 4 polish item.
+- **SEO:** per-page `generateMetadata` (canonical + OpenGraph), JSON-LD
+  (Organization on root, BreadcrumbList + Product/Offer + FAQPage on money pages).
+  Deliberately **no** self-serving AggregateRating/Review schema (post-2024 Google
+  guidance) — reviews rely on Trustpilot. `sitemap.ts` enumerates all 25 URLs;
+  `robots.ts` disallows private areas.
+- **Legal pages** (`/legal/{terms,privacy,refund-policy}`) seeded with clearly
+  labeled PLACEHOLDER, review-by-a-lawyer drafts covering non-affiliation, ToS-risk
+  transparency, age requirement, credential encryption/auto-deletion, and refunds.
