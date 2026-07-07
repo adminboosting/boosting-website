@@ -1,0 +1,32 @@
+name: Supabase Keepalive
+
+# Free-tier Supabase projects pause after ~1 week of inactivity during dev.
+# This daily ping keeps the project awake. (Supabase Pro removes the need.)
+on:
+  schedule:
+    - cron: "17 6 * * *" # daily at 06:17 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST endpoint
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Supabase secrets not configured yet; skipping keepalive."
+            exit 0
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/?select=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" || echo "000")
+          echo "Supabase responded with HTTP $code"
+          # Any HTTP response (even 401/404) proves the project is awake.
+          if [ "$code" = "000" ] || [ "$code" -ge 500 ]; then
+            echo "Project appears unreachable."
+            exit 1
+          fi

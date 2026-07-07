@@ -1,0 +1,41 @@
+# dependencies
+node_modules
+.pnp.*
+.yarn/*
+
+# next.js
+.next
+out
+build
+dist
+
+# production / misc
+*.tsbuildinfo
+coverage
+.vercel
+
+# env — everything except the committed example template
+.env
+.env.*
+!.env.example
+
+# supabase local
+.supabase
+supabase/.branches
+supabase/.temp
+
+# sentry
+.sentryclirc
+
+# testing
+playwright-report
+test-results
+
+# os / editor
+.DS_Store
+*.pem
+npm-debug.log*
+yarn-error.log*
+.idea
+.vscode/*
+!.vscode/extensions.json

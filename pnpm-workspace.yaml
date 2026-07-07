@@ -1,0 +1,13 @@
+# Settings-only pnpm workspace file (pnpm 11 reads build-approval config here, not package.json).
+# These native packages ship prebuilt platform binaries; approving their install scripts
+# silences pnpm's "ignored build scripts" warning and keeps `pnpm install` exit code clean in CI.
+#   esbuild        -> used by tsx + vitest
+#   sharp          -> optional dep of Next.js for image optimization
+#   unrs-resolver  -> native module resolver used by eslint-config-next
+allowBuilds:
+  # sentry-cli is only used to upload source maps during CI builds that set SENTRY_AUTH_TOKEN.
+  # The free/offline build never uploads, so skip its binary download.
+  '@sentry/cli': false
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
