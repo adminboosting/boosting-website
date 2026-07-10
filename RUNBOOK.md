@@ -168,6 +168,26 @@ here later so the CI secret-leak check runs against real values.)
 
 ---
 
+## 🟡 (anytime) Polishing the animations with Claude Design
+
+The site already animates on its own — nothing is required here. But when you want
+to refine a specific animation, there's a simple loop:
+
+1. Open **[CLAUDE_DESIGN_BRIEF.md](CLAUDE_DESIGN_BRIEF.md)**. It lists every
+   animated spot ("slot") on the site — the hero, the lily-pad ladder, the price
+   total, buttons, and so on.
+2. Copy **one slot's block** and paste it into **Claude Design**, then ask for the
+   animation it requests.
+3. Copy what Claude Design gives back and paste it to **Claude Code** with:
+   **"implement slot `[the slot ID]` with this."**
+4. Claude Code wires it in (keeping the reduced-motion safety), rebuilds, and shows
+   you the result. Do one slot at a time or several — each is independent, and none
+   of this can change prices or break the page.
+
+`DESIGN_SYSTEM.md` and `CLAUDE_DESIGN_BRIEF.md` are the shared "design contract"
+that travels between Claude Chat, Code, and Design — you don't need to read them,
+but they're what keeps the look consistent as things get polished.
+
 ## Routine operations & troubleshooting
 
 - **Deploy new changes:** just push to `main` — Vercel redeploys automatically.
