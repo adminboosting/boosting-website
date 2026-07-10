@@ -16,7 +16,8 @@ const LEGAL_LINKS = [
   { href: "/legal/refund-policy", label: "Refund policy" },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const games = await getGames();
   return (
     <footer className="border-t border-border/60">
       <div className="mx-auto w-full max-w-6xl px-6 py-12">
@@ -29,7 +30,7 @@ export function SiteFooter() {
           </div>
 
           <FooterColumn title="Games">
-            {getGames().map((game) => (
+            {games.map((game) => (
               <FooterLink key={game.slug} href={`/${game.slug}`}>
                 {game.name}
               </FooterLink>
@@ -56,16 +57,19 @@ export function SiteFooter() {
         <div className="mt-10 border-t border-border/60 pt-6">
           <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
             {BRAND_NAME} is an independent service and is not affiliated with, endorsed by, or
-            sponsored by Riot Games, Valve, Blizzard Entertainment / Activision, NetEase, or any game
-            publisher. All trademarks and game titles are the property of their respective owners and
-            are used here descriptively.
+            sponsored by Riot Games, Valve, Blizzard Entertainment / Activision, NetEase, or any
+            game publisher. All trademarks and game titles are the property of their respective
+            owners and are used here descriptively.
           </p>
           <div className="mt-4 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>
               © {new Date().getFullYear()} {BRAND_NAME}. Pricing shown is placeholder and subject to
               change.
             </span>
-            <a className="underline-offset-4 hover:underline" href={`mailto:${SUPPORT_EMAIL_FALLBACK}`}>
+            <a
+              className="underline-offset-4 hover:underline"
+              href={`mailto:${SUPPORT_EMAIL_FALLBACK}`}
+            >
               {SUPPORT_EMAIL_FALLBACK}
             </a>
           </div>

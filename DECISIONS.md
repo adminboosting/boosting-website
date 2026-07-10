@@ -261,3 +261,76 @@ prescribes. Recorded so Phase C's provenance is clear.
 **Test split:** `pnpm test` = fast unit + non-DB integration (this is the Vercel build
 gate, per spec "unit tests"). `pnpm test:db` = PGlite-backed DB tests (heavier), run in
 CI and at every gate. `pnpm verify` = the full local gate (`ci:checks` + `test:db`).
+
+---
+
+## Phase B — database layer
+
+Full schema (~28 tables), RLS, and a catalog-generated seed, verified end to end
+against PGlite. Gate B met: migrations apply from clean, RLS isolation proven,
+price parity proven, the site still builds, and local dev works with no DB.
+
+### Schema & RLS
+
+- **6 migrations** (`supabase/migrations/0001..0006`): foundation (enums, role
+  helpers, profiles, site_settings, faqs) → catalog → orders/credentials/messages
+  /progress + status-transition map → payments/reviews/loyalty/referrals →
+  booster ops → audit/analytics. Every table enables RLS in the migration that
+  creates it (proven: a test asserts no public table has `rowsecurity = false`).
+- **Role model.** Postgres roles `anon`/`authenticated`/`service_role` (Supabase
+  managed; a test-only shim recreates them for PGlite). App role lives in
+  `profiles.role`; `public.app_current_role()` (A6) reads it, `is_admin()` and
+  `can_access_order()` build on it. All three are **security definer** so policy
+  lookups don't recurse.
+- **Two RLS bugs the tests caught (would also fail on real Supabase):**
+  1. `language sql` function bodies are validated at CREATE time
+     (`check_function_bodies`), so tables must be created *before* the functions
+     that read them — reordered 0001 and 0003.
+  2. Mutual inline subqueries between `orders` and `order_assignments` policies
+     caused *infinite recursion*; routed both through the security-definer
+     `can_access_order()` helper (which bypasses RLS) instead.
+- **Credential vault deny-all (B2).** `order_credentials` has RLS + `force row
+  level security`, grants revoked from anon/authenticated, and **no policies** —
+  every authenticated actor (including admin) is denied outright; only the service
+  role reads it. Decryption is app-layer (AES-256-GCM, `CREDENTIAL_MASTER_KEY`)
+  after an explicit ownership/assignment check. Proven by `rls-isolation.test.ts`.
+- **Role-escalation guard.** `guard_profile_role` blocks a signed-in
+  `authenticated` user from changing any profile's role (server/service/seed
+  contexts are trusted). NOT security definer, so `current_user` reflects the real
+  caller. Proven by a test.
+- **Coupons are not public** (no anon grant) — validated server-side. The public
+  catalog (games/ranks/prices/modifiers/regions) is genuinely public and
+  anon-readable; catalog reads at runtime use the service role anyway.
+- **Fractional columns use `double precision`, not `numeric`** so node-postgres,
+  PGlite, and PostgREST all return JS numbers — keeping price parity exact across
+  drivers. Integer money stays `int`/`bigint`.
+
+### Seed & data-access cutover
+
+- **`supabase/seed.sql` is GENERATED** from `lib/catalog/*` by `pnpm gen:seed`
+  (spec B1) — prices are never re-typed. Idempotent upserts on each table's
+  natural key; `pnpm db:seed` is safe to re-run. All pricing marked PLACEHOLDER.
+- **`source.ts` is now async** (the deferred Phase A cutover). Source selection:
+  Supabase configured → `createSupabaseCatalogSource()` (supabase-js, service-role,
+  server-only) wrapped in `withFileFallback`; otherwise the file source. The DB
+  backend is **dynamically imported** only when configured, so `server-only` /
+  supabase-js never enter a file-mode bundle or the test graph.
+- **DB source is split for testability.** `db-source.ts` (no `server-only`) holds
+  the shared row→type mappers, context assembly, and the SQL-reader backend used
+  by tests. `supabase-source.ts` (`server-only`) holds the runtime supabase-js
+  backend, reusing those mappers. So the parity test drives the real schema+seed
+  through the same mappers the runtime uses.
+- **Price parity (B3) proven.** `price-parity.test.ts` loads the schema + generated
+  seed into PGlite, drives the SQL catalog source, and asserts `computeQuote()` is
+  byte-identical to the file source across 9 configs (all games/services, duo,
+  modifiers, region multipliers, LoL LP + flex, coupon). Server-authoritative
+  pricing is unchanged.
+- **Order lifecycle scaffolding only (B4).** Status enum + allowed-transition table
+  exist; nothing requiring accounts or payments is wired (that's Phase 2).
+
+### Test harness
+
+PGlite (Postgres 18, in-process) with a Supabase shim (`supabase-shim.sql`) +
+`bootstrapDb()` (shim → all real migrations via the runner) + an `asActor()` helper
+implementing the Supabase pattern (`set local role` + transaction-scoped
+`request.jwt.claims`). This is the reusable substrate for all DB tests.

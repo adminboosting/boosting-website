@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   try {
     // account is null for anonymous quotes; Phase 2 attaches the signed-in
     // customer's loyalty tier + store-credit balance server-side.
-    const ctx = getPricingContext(input.gameSlug, input.serviceType, {
+    const ctx = await getPricingContext(input.gameSlug, input.serviceType, {
       couponCode: input.couponCode,
       account: null,
     });

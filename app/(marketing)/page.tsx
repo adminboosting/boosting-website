@@ -49,7 +49,8 @@ const STEPS = [
   },
 ] as const;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const games = await getGames();
   return (
     <>
       {/* Hero */}
@@ -76,7 +77,10 @@ export default function HomePage() {
               Explore boosts
               <ArrowRight />
             </Link>
-            <Link href="/how-it-works" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
+            <Link
+              href="/how-it-works"
+              className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+            >
               How it works
             </Link>
           </div>
@@ -120,7 +124,7 @@ export default function HomePage() {
           Rank boosts, placements, and net wins for every title.
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {getGames().map((game) => (
+          {games.map((game) => (
             <Link
               key={game.slug}
               href={`/${game.slug}`}

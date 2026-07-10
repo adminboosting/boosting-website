@@ -19,7 +19,8 @@ const GAME_ACCENT: Record<string, string> = {
   "marvel-rivals": "text-rank-master",
 };
 
-export default function GamesPage() {
+export default async function GamesPage() {
+  const games = await getGames();
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-12">
       <header className="max-w-2xl">
@@ -30,7 +31,7 @@ export default function GamesPage() {
       </header>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2">
-        {getGames().map((game) => (
+        {games.map((game) => (
           <Link
             key={game.slug}
             href={`/${game.slug}`}

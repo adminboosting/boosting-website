@@ -62,6 +62,7 @@ step-by-step, mostly point-and-click process in [`RUNBOOK.md`](RUNBOOK.md).
 | `pnpm verify` | Everything: typecheck + lint + `test` + `test:db` (the local gate) |
 | `pnpm format` | Prettier write |
 | `pnpm generate:key` | Print a fresh `CREDENTIAL_MASTER_KEY` (vault, §10) |
+| `pnpm gen:seed` | Regenerate `supabase/seed.sql` from `lib/catalog/*` (single-sourced prices) |
 | `pnpm check:secrets` | CI guard: assert no server secret leaked into the client bundle |
 | `pnpm db:migrate` | Apply `supabase/migrations/*.sql` in order (needs `SUPABASE_DB_URL`) |
 | `pnpm db:seed` | Load starter catalog data (idempotent; needs `SUPABASE_DB_URL`) |

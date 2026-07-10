@@ -1,24 +1,21 @@
 /**
- * Single catalog data-access layer (spec A5).
+ * Single catalog data-access layer (spec A5/B3).
  *
- * This is the ONLY module the calculator and marketing pages may read catalog
- * data through: games, ranks, prices, modifiers, regions, coupons, and pricing
- * settings. Nothing else in the app imports `lib/catalog/data.ts` directly — the
- * rest of the app must not know where the catalog comes from.
+ * This is the ONLY module the calculator and marketing pages read catalog data
+ * through: games, ranks, prices, modifiers, regions, coupons, and pricing
+ * settings. Nothing else imports `lib/catalog/data.ts` directly — the rest of the
+ * app must not know where the catalog comes from.
  *
- * Phase A (now): file-backed. Every getter delegates to the in-code catalog in
- *   `./data`, so the site runs with zero backend.
- * Phase B: a Supabase-backed `CatalogSource` is swapped in via
- *   `setCatalogSource()`. It reads the database and falls back to the file source
- *   when no Supabase project is configured (local dev). Because every consumer
- *   depends only on this module's surface, that swap will not touch the pages or
- *   the pricing route.
+ * Source selection (B3):
+ *   - Supabase configured (URL + service-role key present)  -> DB source
+ *     (supabase-js), with the file source as a per-call fallback if a read fails.
+ *   - Otherwise (local dev / no DB)                          -> file source.
+ * The DB backend is dynamically imported only when configured, so `server-only`
+ * and supabase-js never enter a file-mode bundle or the test graph.
  *
- * ⚠️ Phase B will make these getters ASYNC (supabase-js is async). Consumers are
- * server components / route handlers and will `await` them at that point. The
- * price-parity regression test (Gate B) guards that the DB source returns values
- * byte-identical to this file source, so the cutover cannot silently change any
- * price. Do not add a second read path around this module to avoid the await.
+ * Getters are async: the DB read is async, and the price-parity regression test
+ * (Gate B) guarantees the DB source returns values byte-identical to the file
+ * source — so cutting over cannot change any price.
  */
 import type {
   CouponRecord,
@@ -49,81 +46,184 @@ import {
 
 export type { BuildContextOptions };
 
-/**
- * The contract every catalog backend implements. Phase A ships the file-backed
- * implementation below; Phase B adds a Supabase-backed one with this same file
- * source as its fallback.
- */
+/** The contract every catalog backend implements. */
 export interface CatalogSource {
-  /** Which backend answered — surfaced for diagnostics and tests. */
   readonly kind: "file" | "database";
-  getGames(): Game[];
-  getGame(slug: GameSlug): Game;
-  getRanks(slug: GameSlug): Rank[];
-  getPlacementPrices(slug: GameSlug): PlacementPrice[];
-  getNetWinGroups(slug: GameSlug): NetWinGroup[];
-  getRegions(slug: GameSlug): Region[];
-  getModifiers(): Modifier[];
-  getCoupon(code: string | undefined): CouponRecord | null;
-  getPricingSettings(): PricingSettings;
-  /**
-   * Assemble the full context the pure pricing engine consumes for one
-   * game+service. The engine never learns which source built it.
-   */
+  getGames(): Promise<Game[]>;
+  getGame(slug: GameSlug): Promise<Game>;
+  getRanks(slug: GameSlug): Promise<Rank[]>;
+  getPlacementPrices(slug: GameSlug): Promise<PlacementPrice[]>;
+  getNetWinGroups(slug: GameSlug): Promise<NetWinGroup[]>;
+  getRegions(slug: GameSlug): Promise<Region[]>;
+  getModifiers(): Promise<Modifier[]>;
+  getCoupon(code: string | undefined): Promise<CouponRecord | null>;
+  getPricingSettings(): Promise<PricingSettings>;
   getPricingContext(
     gameSlug: GameSlug,
     serviceType: ServiceType,
     options?: BuildContextOptions,
-  ): PricingContext;
+  ): Promise<PricingContext>;
 }
 
 /** File-backed catalog source — delegates to the in-code catalog (`./data`). */
 export const fileCatalogSource: CatalogSource = {
   kind: "file",
-  getGames: () => GAMES,
-  getGame: (slug) => fileGetGame(slug),
-  getRanks: (slug) => fileGetRanks(slug),
-  getPlacementPrices: (slug) => fileGetPlacementPrices(slug),
-  getNetWinGroups: (slug) => fileGetNetWinGroups(slug),
-  getRegions: (slug) => fileGetRegions(slug),
-  getModifiers: () => fileGetModifiers(),
-  getCoupon: (code) => fileGetCoupon(code),
-  getPricingSettings: () => DEFAULT_PRICING_SETTINGS,
-  getPricingContext: (gameSlug, serviceType, options) =>
+  getGames: async () => GAMES,
+  getGame: async (slug) => fileGetGame(slug),
+  getRanks: async (slug) => fileGetRanks(slug),
+  getPlacementPrices: async (slug) => fileGetPlacementPrices(slug),
+  getNetWinGroups: async (slug) => fileGetNetWinGroups(slug),
+  getRegions: async (slug) => fileGetRegions(slug),
+  getModifiers: async () => fileGetModifiers(),
+  getCoupon: async (code) => fileGetCoupon(code),
+  getPricingSettings: async () => DEFAULT_PRICING_SETTINGS,
+  getPricingContext: async (gameSlug, serviceType, options) =>
     buildPricingContext(gameSlug, serviceType, options),
 };
 
-// The active source. Phase B calls setCatalogSource() from server bootstrap to
-// install the DB-backed source when Supabase is configured.
-let active: CatalogSource = fileCatalogSource;
+/**
+ * Wrap a primary (DB) source so any failing read falls back to the file source.
+ * This keeps the public site up if the database hiccups; the parity test proves
+ * the two return identical values, so the fallback can only ever change latency.
+ */
+export function withFileFallback(primary: CatalogSource, fallback: CatalogSource): CatalogSource {
+  let warned = false;
+  const guard = async <T>(run: () => Promise<T>, fb: () => Promise<T>): Promise<T> => {
+    try {
+      return await run();
+    } catch (error) {
+      if (!warned) {
+        warned = true;
+        console.error(
+          "[catalog] DB read failed — falling back to the file catalog:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+      return fb();
+    }
+  };
+  return {
+    kind: "database",
+    getGames: () =>
+      guard(
+        () => primary.getGames(),
+        () => fallback.getGames(),
+      ),
+    getGame: (s) =>
+      guard(
+        () => primary.getGame(s),
+        () => fallback.getGame(s),
+      ),
+    getRanks: (s) =>
+      guard(
+        () => primary.getRanks(s),
+        () => fallback.getRanks(s),
+      ),
+    getPlacementPrices: (s) =>
+      guard(
+        () => primary.getPlacementPrices(s),
+        () => fallback.getPlacementPrices(s),
+      ),
+    getNetWinGroups: (s) =>
+      guard(
+        () => primary.getNetWinGroups(s),
+        () => fallback.getNetWinGroups(s),
+      ),
+    getRegions: (s) =>
+      guard(
+        () => primary.getRegions(s),
+        () => fallback.getRegions(s),
+      ),
+    getModifiers: () =>
+      guard(
+        () => primary.getModifiers(),
+        () => fallback.getModifiers(),
+      ),
+    getCoupon: (c) =>
+      guard(
+        () => primary.getCoupon(c),
+        () => fallback.getCoupon(c),
+      ),
+    getPricingSettings: () =>
+      guard(
+        () => primary.getPricingSettings(),
+        () => fallback.getPricingSettings(),
+      ),
+    getPricingContext: (g, s, o) =>
+      guard(
+        () => primary.getPricingContext(g, s, o),
+        () => fallback.getPricingContext(g, s, o),
+      ),
+  };
+}
 
-export function getCatalogSource(): CatalogSource {
+function isDbConfigured(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return (
+    !!url &&
+    !!key &&
+    !url.includes("YOUR-PROJECT") &&
+    key !== "your-service-role-key" &&
+    key.length > 20
+  );
+}
+
+// The active source, resolved lazily on first use (server-side). Tests may
+// override via setCatalogSource().
+let active: CatalogSource | null = null;
+
+export async function getCatalogSource(): Promise<CatalogSource> {
+  if (active) return active;
+  if (isDbConfigured()) {
+    const { createSupabaseCatalogSource } = await import("@/lib/catalog/supabase-source");
+    active = withFileFallback(createSupabaseCatalogSource(), fileCatalogSource);
+  } else {
+    active = fileCatalogSource;
+  }
   return active;
 }
 
-export function setCatalogSource(source: CatalogSource): void {
+/** Override the active source (tests). Pass null to force re-resolution. */
+export function setCatalogSource(source: CatalogSource | null): void {
   active = source;
 }
 
 // ---------------------------------------------------------------------------
-// Public read API — the single path the app uses. Every function routes through
-// the active source so the cutover in Phase B is a one-line swap.
+// Public async read API — the single path the app uses.
 // ---------------------------------------------------------------------------
 
-export const getGames = (): Game[] => getCatalogSource().getGames();
-export const getGame = (slug: GameSlug): Game => getCatalogSource().getGame(slug);
-export const getRanks = (slug: GameSlug): Rank[] => getCatalogSource().getRanks(slug);
-export const getPlacementPrices = (slug: GameSlug): PlacementPrice[] =>
-  getCatalogSource().getPlacementPrices(slug);
-export const getNetWinGroups = (slug: GameSlug): NetWinGroup[] =>
-  getCatalogSource().getNetWinGroups(slug);
-export const getRegions = (slug: GameSlug): Region[] => getCatalogSource().getRegions(slug);
-export const getModifiers = (): Modifier[] => getCatalogSource().getModifiers();
-export const getCoupon = (code: string | undefined): CouponRecord | null =>
-  getCatalogSource().getCoupon(code);
-export const getPricingSettings = (): PricingSettings => getCatalogSource().getPricingSettings();
-export const getPricingContext = (
+export async function getGames(): Promise<Game[]> {
+  return (await getCatalogSource()).getGames();
+}
+export async function getGame(slug: GameSlug): Promise<Game> {
+  return (await getCatalogSource()).getGame(slug);
+}
+export async function getRanks(slug: GameSlug): Promise<Rank[]> {
+  return (await getCatalogSource()).getRanks(slug);
+}
+export async function getPlacementPrices(slug: GameSlug): Promise<PlacementPrice[]> {
+  return (await getCatalogSource()).getPlacementPrices(slug);
+}
+export async function getNetWinGroups(slug: GameSlug): Promise<NetWinGroup[]> {
+  return (await getCatalogSource()).getNetWinGroups(slug);
+}
+export async function getRegions(slug: GameSlug): Promise<Region[]> {
+  return (await getCatalogSource()).getRegions(slug);
+}
+export async function getModifiers(): Promise<Modifier[]> {
+  return (await getCatalogSource()).getModifiers();
+}
+export async function getCoupon(code: string | undefined): Promise<CouponRecord | null> {
+  return (await getCatalogSource()).getCoupon(code);
+}
+export async function getPricingSettings(): Promise<PricingSettings> {
+  return (await getCatalogSource()).getPricingSettings();
+}
+export async function getPricingContext(
   gameSlug: GameSlug,
   serviceType: ServiceType,
   options?: BuildContextOptions,
-): PricingContext => getCatalogSource().getPricingContext(gameSlug, serviceType, options);
+): Promise<PricingContext> {
+  return (await getCatalogSource()).getPricingContext(gameSlug, serviceType, options);
+}

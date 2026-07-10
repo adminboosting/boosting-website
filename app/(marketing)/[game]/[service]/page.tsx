@@ -13,11 +13,7 @@ import {
   getRanks,
   getRegions,
 } from "@/lib/catalog/source";
-import {
-  allMoneyPagePaths,
-  getMoneyPageContent,
-  getServiceBySlug,
-} from "@/lib/catalog/content";
+import { allMoneyPagePaths, getMoneyPageContent, getServiceBySlug } from "@/lib/catalog/content";
 import type { GameSlug, ServiceType } from "@/lib/catalog/types";
 import { getSiteUrl } from "@/lib/config";
 import { formatUsdFromCents } from "@/lib/money";
@@ -30,8 +26,10 @@ export function generateStaticParams() {
 
 type PageParams = { game: string; service: string };
 
-function resolve(params: PageParams): { gameSlug: GameSlug; serviceType: ServiceType } | null {
-  const game = getGames().find((g) => g.slug === params.game);
+async function resolve(
+  params: PageParams,
+): Promise<{ gameSlug: GameSlug; serviceType: ServiceType } | null> {
+  const game = (await getGames()).find((g) => g.slug === params.game);
   const service = getServiceBySlug(params.service);
   if (!game || !service) return null;
   return { gameSlug: game.slug, serviceType: service.type };
@@ -42,9 +40,9 @@ export async function generateMetadata({
 }: {
   params: Promise<PageParams>;
 }): Promise<Metadata> {
-  const resolved = resolve(await params);
+  const resolved = await resolve(await params);
   if (!resolved) return {};
-  const content = getMoneyPageContent(resolved.gameSlug, resolved.serviceType);
+  const content = await getMoneyPageContent(resolved.gameSlug, resolved.serviceType);
   const url = `${getSiteUrl()}/${resolved.gameSlug}/${(await params).service}`;
   return {
     title: content.metaTitle,
@@ -59,40 +57,49 @@ export async function generateMetadata({
   };
 }
 
-function lowestPriceCents(gameSlug: GameSlug, serviceType: ServiceType): number {
+async function lowestPriceCents(gameSlug: GameSlug, serviceType: ServiceType): Promise<number> {
   if (serviceType === "placements") {
-    return Math.min(...getPlacementPrices(gameSlug).map((p) => p.pricePerGameCents));
+    return Math.min(...(await getPlacementPrices(gameSlug)).map((p) => p.pricePerGameCents));
   }
   if (serviceType === "net_wins") {
-    return Math.min(...getNetWinGroups(gameSlug).map((g) => g.pricePerWinCents));
+    return Math.min(...(await getNetWinGroups(gameSlug)).map((g) => g.pricePerWinCents));
   }
   return Math.min(
-    ...getRanks(gameSlug)
+    ...(await getRanks(gameSlug))
       .filter((r) => r.isPurchasable && r.climbPriceCents > 0)
       .map((r) => r.climbPriceCents),
   );
 }
 
-function buildCatalog(gameSlug: GameSlug, serviceType: ServiceType): CalculatorCatalog {
-  const settings = getPricingSettings();
+async function buildCatalog(
+  gameSlug: GameSlug,
+  serviceType: ServiceType,
+): Promise<CalculatorCatalog> {
+  const [settings, ranks, regions, modifiers, placementPrices] = await Promise.all([
+    getPricingSettings(),
+    getRanks(gameSlug),
+    getRegions(gameSlug),
+    getModifiers(),
+    getPlacementPrices(gameSlug),
+  ]);
   return {
     gameSlug,
     serviceType,
     isLoL: gameSlug === "league-of-legends",
     duoMultiplierBp: settings.duoMultiplierBp,
     volumeDiscounts: settings.volumeDiscounts,
-    ranks: getRanks(gameSlug).map((r) => ({
+    ranks: ranks.map((r) => ({
       sortIndex: r.sortIndex,
       label: r.label,
       tier: r.tier,
       isPurchasable: r.isPurchasable,
     })),
-    regions: getRegions(gameSlug).map((r) => ({
+    regions: regions.map((r) => ({
       code: r.code,
       label: r.label,
       isDefault: r.isDefault,
     })),
-    modifiers: getModifiers()
+    modifiers: modifiers
       .filter(
         (m) =>
           m.isActive &&
@@ -108,7 +115,7 @@ function buildCatalog(gameSlug: GameSlug, serviceType: ServiceType): CalculatorC
         isDefaultOn: m.isDefaultOn,
         hiddenInDuo: m.hiddenInDuo,
       })),
-    placementBands: getPlacementPrices(gameSlug).map((p) => ({
+    placementBands: placementPrices.map((p) => ({
       band: p.band,
       label: p.label,
       minGames: p.minGames,
@@ -126,16 +133,18 @@ const TRUST = [
 
 export default async function MoneyPage({ params }: { params: Promise<PageParams> }) {
   const raw = await params;
-  const resolved = resolve(raw);
+  const resolved = await resolve(raw);
   if (!resolved) notFound();
 
   const { gameSlug, serviceType } = resolved;
-  const game = getGame(gameSlug);
-  const content = getMoneyPageContent(gameSlug, serviceType);
+  const [game, content, catalog, low] = await Promise.all([
+    getGame(gameSlug),
+    getMoneyPageContent(gameSlug, serviceType),
+    buildCatalog(gameSlug, serviceType),
+    lowestPriceCents(gameSlug, serviceType),
+  ]);
   const service = getServiceBySlug(raw.service)!;
-  const catalog = buildCatalog(gameSlug, serviceType);
   const siteUrl = getSiteUrl();
-  const low = lowestPriceCents(gameSlug, serviceType);
 
   const jsonLd = [
     {
@@ -186,7 +195,10 @@ export default async function MoneyPage({ params }: { params: Promise<PageParams
 
       <div className="mx-auto w-full max-w-6xl px-6 py-10">
         {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex items-center gap-1 text-sm text-muted-foreground"
+        >
           <Link href="/" className="hover:text-foreground">
             Home
           </Link>
@@ -203,7 +215,12 @@ export default async function MoneyPage({ params }: { params: Promise<PageParams
           <p className="mt-3 text-lg text-muted-foreground">{content.intro}</p>
           <p className="mt-2 text-sm text-muted-foreground">
             From <span className="font-semibold text-foreground">{formatUsdFromCents(low)}</span>
-            {serviceType === "rank_boost" ? " per division" : serviceType === "placements" ? " per game" : " per win"}.
+            {serviceType === "rank_boost"
+              ? " per division"
+              : serviceType === "placements"
+                ? " per game"
+                : " per win"}
+            .
           </p>
         </header>
 
@@ -243,9 +260,7 @@ export default async function MoneyPage({ params }: { params: Promise<PageParams
                     key={f.question}
                     className="group rounded-lg border border-border bg-card/40 p-4"
                   >
-                    <summary className="cursor-pointer list-none font-medium">
-                      {f.question}
-                    </summary>
+                    <summary className="cursor-pointer list-none font-medium">{f.question}</summary>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.answer}</p>
                   </details>
                 ))}

@@ -17,12 +17,12 @@ import { cn } from "@/lib/utils";
 
 export const revalidate = 3600;
 
-export function generateStaticParams() {
-  return getGames().map((g) => ({ game: g.slug }));
+export async function generateStaticParams() {
+  return (await getGames()).map((g) => ({ game: g.slug }));
 }
 
-function resolveGame(slug: string): GameSlug | null {
-  return getGames().find((g) => g.slug === slug)?.slug ?? null;
+async function resolveGame(slug: string): Promise<GameSlug | null> {
+  return (await getGames()).find((g) => g.slug === slug)?.slug ?? null;
 }
 
 export async function generateMetadata({
@@ -30,9 +30,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ game: string }>;
 }): Promise<Metadata> {
-  const slug = resolveGame((await params).game);
+  const slug = await resolveGame((await params).game);
   if (!slug) return {};
-  const game = getGame(slug);
+  const game = await getGame(slug);
   const title = `${game.name} Boosting — Rank Boost, Placements & Net Wins`;
   const description = `Safe, fast ${game.name} boosting by vetted pros. Rank boost, placement matches, and ranked net wins — piloted or duo, priced live with encrypted account handling.`;
   return {
@@ -43,15 +43,15 @@ export async function generateMetadata({
   };
 }
 
-function serviceFromCents(gameSlug: GameSlug, type: ServiceType): number {
+async function serviceFromCents(gameSlug: GameSlug, type: ServiceType): Promise<number> {
   if (type === "placements") {
-    return Math.min(...getPlacementPrices(gameSlug).map((p) => p.pricePerGameCents));
+    return Math.min(...(await getPlacementPrices(gameSlug)).map((p) => p.pricePerGameCents));
   }
   if (type === "net_wins") {
-    return Math.min(...getNetWinGroups(gameSlug).map((g) => g.pricePerWinCents));
+    return Math.min(...(await getNetWinGroups(gameSlug)).map((g) => g.pricePerWinCents));
   }
   return Math.min(
-    ...getRanks(gameSlug)
+    ...(await getRanks(gameSlug))
       .filter((r) => r.isPurchasable && r.climbPriceCents > 0)
       .map((r) => r.climbPriceCents),
   );
@@ -72,19 +72,27 @@ const TIER_COLOR: Record<string, string> = {
 };
 
 export default async function GameHubPage({ params }: { params: Promise<{ game: string }> }) {
-  const slug = resolveGame((await params).game);
+  const slug = await resolveGame((await params).game);
   if (!slug) notFound();
-  const game = getGame(slug);
+  const [game, ranks, fromEntries] = await Promise.all([
+    getGame(slug),
+    getRanks(slug),
+    Promise.all(SERVICES.map(async (s) => [s.type, await serviceFromCents(slug, s.type)] as const)),
+  ]);
+  const fromByType = new Map(fromEntries);
 
   // Unique tiers in ladder order for a visual preview.
   const tiers: string[] = [];
-  for (const rank of getRanks(slug)) {
+  for (const rank of ranks) {
     if (!tiers.includes(rank.tier)) tiers.push(rank.tier);
   }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-10">
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex items-center gap-1 text-sm text-muted-foreground"
+      >
         <Link href="/" className="hover:text-foreground">
           Home
         </Link>
@@ -107,7 +115,7 @@ export default async function GameHubPage({ params }: { params: Promise<{ game: 
       {/* Services */}
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {SERVICES.map((service) => {
-          const from = serviceFromCents(slug, service.type);
+          const from = fromByType.get(service.type)!;
           const unit =
             service.type === "rank_boost"
               ? "per division"

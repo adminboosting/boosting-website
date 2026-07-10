@@ -130,7 +130,13 @@ const RANKS: Record<GameSlug, Rank[]> = {
     { tier: "Platinum", priceCents: 1700, etaHours: 3.5, divisions: OW2_DIVS, purchasable: true },
     { tier: "Diamond", priceCents: 2200, etaHours: 4.5, divisions: OW2_DIVS, purchasable: true },
     { tier: "Master", priceCents: 3400, etaHours: 6.0, divisions: OW2_DIVS, purchasable: true },
-    { tier: "Grandmaster", priceCents: 5500, etaHours: 8.0, divisions: OW2_DIVS, purchasable: true },
+    {
+      tier: "Grandmaster",
+      priceCents: 5500,
+      etaHours: 8.0,
+      divisions: OW2_DIVS,
+      purchasable: true,
+    },
     { tier: "Champion", priceCents: 0, etaHours: 0, divisions: null, purchasable: false },
   ]),
   "marvel-rivals": buildRanks("marvel-rivals", [
@@ -349,7 +355,13 @@ const REGIONS: Record<GameSlug, Region[]> = {
     { code: "na", label: "North America", multiplier: 1.0, isDefault: true, sortOrder: 10 },
     { code: "euw", label: "EU West", multiplier: 1.0, isDefault: false, sortOrder: 20 },
     { code: "eune", label: "EU Nordic & East", multiplier: 0.95, isDefault: false, sortOrder: 30 },
-    { code: "br_latam", label: "Brazil / LATAM", multiplier: 0.85, isDefault: false, sortOrder: 40 },
+    {
+      code: "br_latam",
+      label: "Brazil / LATAM",
+      multiplier: 0.85,
+      isDefault: false,
+      sortOrder: 40,
+    },
     { code: "oce", label: "Oceania", multiplier: 1.1, isDefault: false, sortOrder: 50 },
     { code: "kr", label: "Korea", multiplier: 1.4, isDefault: false, sortOrder: 60 },
   ].map((r) => ({ gameSlug: "league-of-legends", ...r })),
@@ -406,8 +418,20 @@ export const LOYALTY_TIERS: LoyaltyTier[] = [
   { name: "Bronze", minLifetimeSpendCents: 0, discountBp: 200, cashbackBp: 50, sortOrder: 10 },
   { name: "Silver", minLifetimeSpendCents: 15000, discountBp: 500, cashbackBp: 100, sortOrder: 20 },
   { name: "Gold", minLifetimeSpendCents: 40000, discountBp: 1000, cashbackBp: 150, sortOrder: 30 },
-  { name: "Platinum", minLifetimeSpendCents: 75000, discountBp: 1600, cashbackBp: 200, sortOrder: 40 },
-  { name: "Diamond", minLifetimeSpendCents: 100000, discountBp: 1800, cashbackBp: 250, sortOrder: 50 },
+  {
+    name: "Platinum",
+    minLifetimeSpendCents: 75000,
+    discountBp: 1600,
+    cashbackBp: 200,
+    sortOrder: 40,
+  },
+  {
+    name: "Diamond",
+    minLifetimeSpendCents: 100000,
+    discountBp: 1800,
+    cashbackBp: 250,
+    sortOrder: 50,
+  },
 ];
 
 export function getLoyaltyTierForSpend(lifetimeSpendCents: number): LoyaltyTier {

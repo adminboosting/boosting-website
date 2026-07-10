@@ -98,11 +98,11 @@ export interface MoneyPageContent {
   faqs: FaqItem[];
 }
 
-export function getMoneyPageContent(
+export async function getMoneyPageContent(
   gameSlug: GameSlug,
   serviceType: ServiceType,
-): MoneyPageContent {
-  const game = getGame(gameSlug);
+): Promise<MoneyPageContent> {
+  const game = await getGame(gameSlug);
   const service = getServiceByType(serviceType);
   const gc = GAME_CONTENT[gameSlug];
 
@@ -124,7 +124,10 @@ export function getMoneyPageContent(
     metaDescription: `${service.blurb} ${game.name} ${service.name.toLowerCase()} by vetted pros, piloted or duo, priced live. Encrypted account handling and cashback on every order.`,
     intro: serviceIntro[serviceType],
     sections: [
-      { title: `How ${game.name} ${service.short.toLowerCase()} works`, body: howBody[serviceType] },
+      {
+        title: `How ${game.name} ${service.short.toLowerCase()} works`,
+        body: howBody[serviceType],
+      },
       {
         title: "Your options, explained",
         body: "Every order lets you tune speed and privacy: Express prioritizes your order, Appear offline keeps the booster invisible, Solo queue only avoids duo lobbies, Choose characters lets you specify champions/agents/heroes, and Top-rated booster hands your order to one of our best. Each option shows its exact price and time impact before you buy.",
@@ -161,11 +164,6 @@ export function getMoneyPageContent(
 
 /** All game×service slug pairs, for static params and the sitemap. */
 export function allMoneyPagePaths(): Array<{ game: GameSlug; service: string }> {
-  const games: GameSlug[] = [
-    "league-of-legends",
-    "valorant",
-    "overwatch-2",
-    "marvel-rivals",
-  ];
+  const games: GameSlug[] = ["league-of-legends", "valorant", "overwatch-2", "marvel-rivals"];
   return games.flatMap((game) => SERVICES.map((s) => ({ game, service: s.slug })));
 }

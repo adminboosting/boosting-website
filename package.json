@@ -25,6 +25,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "generate:key": "tsx scripts/generate-key.ts",
+    "gen:seed": "tsx scripts/gen-seed.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:push": "supabase db push",

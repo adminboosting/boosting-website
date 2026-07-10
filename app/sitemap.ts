@@ -3,7 +3,7 @@ import { getGames } from "@/lib/catalog/source";
 import { allMoneyPagePaths } from "@/lib/catalog/content";
 import { getSiteUrl } from "@/lib/config";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = getSiteUrl();
 
   const staticRoutes = [
@@ -18,7 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/legal/refund-policy",
   ];
 
-  const gameRoutes = getGames().map((g) => `/${g.slug}`);
+  const gameRoutes = (await getGames()).map((g) => `/${g.slug}`);
   const moneyRoutes = allMoneyPagePaths().map((p) => `/${p.game}/${p.service}`);
 
   return [...staticRoutes, ...gameRoutes, ...moneyRoutes].map((path) => ({
