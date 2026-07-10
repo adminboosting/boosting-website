@@ -21,9 +21,9 @@ export function LegalShell({
       <div className="mb-8 flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
         <p className="text-muted-foreground">
-          <span className="font-semibold text-foreground">PLACEHOLDER — not legal advice.</span> This
-          is a draft reflecting common market norms and must be reviewed by a qualified lawyer before
-          launch.
+          <span className="font-semibold text-foreground">PLACEHOLDER — not legal advice.</span>{" "}
+          This is a draft reflecting common market norms and must be reviewed by a qualified lawyer
+          before launch.
         </p>
       </div>
 

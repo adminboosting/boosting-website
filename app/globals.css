@@ -3,85 +3,126 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * RankedFrogs — dark, competitive-gaming theme.
- * A single vivid accent (frog green) with a cyan secondary accent, sourced from
- * CSS variables so re-theming is trivial. The site is dark-first; :root and
- * .dark share the same palette.
- */
+/* ============================================================================
+ * RankedFrogs — "Bright lily-pond" design system. SINGLE SOURCE OF TRUTH.
+ * Re-theming the whole site happens here and nowhere else (spec C2). No raw hex
+ * or magic numbers belong in components — everything references a token.
+ *
+ * The palette is deliberately specific, not the AI-default near-black + acid
+ * green (see DESIGN_SYSTEM.md → "Divergence from the default"). Light-first,
+ * warm paper, a deep ownable POND green, a CROWN gold pulled straight from the
+ * mascot, and a sage neutral ramp. Dark mode is a supported "pond at night".
+ * ========================================================================== */
+
 :root {
-  --radius: 0.7rem;
+  /* --- Named brand palette (the 5 ownable colors) ------------------------- */
+  --pond: oklch(0.5 0.132 153); /* primary — deep lily-pad green, AA on white  */
+  --pond-deep: oklch(0.42 0.12 156); /* pressed/edge state                      */
+  --crown: oklch(0.8 0.132 82); /* secondary accent — gold, from the mascot    */
+  --crown-ink: oklch(0.46 0.1 74); /* readable gold for text/icons on paper     */
+  --deep-water: oklch(0.26 0.035 172); /* pond depth — footer, dark sections     */
 
-  --background: oklch(0.145 0.012 275);
-  --foreground: oklch(0.985 0.003 275);
+  /* --- Sage neutral ramp (warm-green tinted, never pure gray) ------------- */
+  --paper: oklch(0.985 0.008 135); /* app background — warm lily-pond daylight   */
+  --paper-sunk: oklch(0.965 0.01 140); /* recessed wells                         */
+  --surface: oklch(1 0 0); /* cards float above the paper                        */
+  --ink: oklch(0.24 0.022 168); /* primary text — deep green-black               */
+  --ink-soft: oklch(0.44 0.02 165); /* secondary text — AA on paper              */
+  --sage-line: oklch(0.9 0.012 150); /* hairline borders                         */
+  --sage-line-strong: oklch(0.85 0.014 150); /* input borders                    */
+  --sage-fill: oklch(0.95 0.012 150); /* chips, ghost hovers, secondary surfaces */
 
-  --card: oklch(0.178 0.014 275);
-  --card-foreground: oklch(0.985 0.003 275);
+  /* --- Semantic roles (components reference THESE, not the raw names) ----- */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
 
-  --popover: oklch(0.178 0.014 275);
-  --popover-foreground: oklch(0.985 0.003 275);
+  --primary: var(--pond);
+  --primary-foreground: oklch(0.99 0.01 140);
+  --secondary: var(--sage-fill);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-sunk);
+  --muted-foreground: var(--ink-soft);
+  --accent: var(--crown);
+  --accent-foreground: oklch(0.28 0.045 78);
 
-  --primary: oklch(0.73 0.19 150);
-  --primary-foreground: oklch(0.18 0.03 150);
+  --success: oklch(0.55 0.14 155);
+  --warning: oklch(0.72 0.15 62);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
 
-  --secondary: oklch(0.235 0.02 275);
-  --secondary-foreground: oklch(0.985 0.003 275);
+  --border: var(--sage-line);
+  --input: var(--sage-line-strong);
+  --ring: oklch(0.55 0.14 153);
 
-  --muted: oklch(0.235 0.02 275);
-  --muted-foreground: oklch(0.712 0.022 275);
+  --radius: 0.75rem;
 
-  --accent: oklch(0.72 0.145 200);
-  --accent-foreground: oklch(0.16 0.02 275);
+  /* --- Rank-tier accents (used by the lily-pad ladder) — mid-tone so a dot
+   *     reads on paper and a label stays legible. ------------------------- */
+  --rank-iron: oklch(0.52 0.02 260);
+  --rank-bronze: oklch(0.55 0.1 55);
+  --rank-silver: oklch(0.62 0.015 250);
+  --rank-gold: oklch(0.7 0.14 88);
+  --rank-platinum: oklch(0.66 0.09 195);
+  --rank-emerald: oklch(0.58 0.15 160);
+  --rank-diamond: oklch(0.62 0.13 235);
+  --rank-master: oklch(0.56 0.2 320);
+  --rank-grandmaster: oklch(0.56 0.2 25);
+  --rank-celestial: oklch(0.64 0.12 205);
 
-  --destructive: oklch(0.62 0.22 25);
-  --destructive-foreground: oklch(0.985 0 0);
+  /* --- Charts (brand-led categorical) ------------------------------------ */
+  --chart-1: var(--pond);
+  --chart-2: var(--crown);
+  --chart-3: var(--rank-diamond);
+  --chart-4: var(--rank-master);
+  --chart-5: var(--warning);
 
-  --success: oklch(0.7 0.16 155);
-  --warning: oklch(0.78 0.15 85);
+  /* --- Elevation (soft, ink-tinted — light-theme depth) ------------------ */
+  --shadow-color: 165 25% 22%;
+  --elevation-sm: 0 1px 2px -1px oklch(0.24 0.03 168 / 0.16);
+  --elevation-md: 0 6px 20px -8px oklch(0.24 0.03 168 / 0.18);
+  --elevation-lg: 0 18px 44px -16px oklch(0.24 0.03 168 / 0.24);
+  --elevation-pad: 0 3px 0 0 var(--pond-deep); /* the "lily-pad lift" edge      */
 
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.73 0.19 150);
-
-  --chart-1: oklch(0.73 0.19 150);
-  --chart-2: oklch(0.72 0.145 200);
-  --chart-3: oklch(0.7 0.16 155);
-  --chart-4: oklch(0.78 0.15 85);
-  --chart-5: oklch(0.62 0.22 25);
-
-  /* Rank-tier chip colors (used by the calculator ladder in Phase 1). */
-  --rank-iron: oklch(0.6 0.02 275);
-  --rank-bronze: oklch(0.58 0.09 55);
-  --rank-silver: oklch(0.78 0.01 275);
-  --rank-gold: oklch(0.82 0.14 90);
-  --rank-platinum: oklch(0.78 0.09 195);
-  --rank-emerald: oklch(0.72 0.15 160);
-  --rank-diamond: oklch(0.78 0.12 235);
-  --rank-master: oklch(0.65 0.2 320);
-  --rank-grandmaster: oklch(0.62 0.22 25);
-  --rank-celestial: oklch(0.8 0.11 205);
+  /* --- Motion tokens (also the source for Phase D animation slots) ------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-ripple: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --duration-fast: 130ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+  --duration-slower: 620ms;
+  --travel-xs: 2px;
+  --travel-sm: 6px;
+  --travel-md: 12px;
 }
 
+/* Dark mode — "pond at night". Supported, not primary (owner chose light). */
 .dark {
-  --background: oklch(0.145 0.012 275);
-  --foreground: oklch(0.985 0.003 275);
-  --card: oklch(0.178 0.014 275);
-  --card-foreground: oklch(0.985 0.003 275);
-  --popover: oklch(0.178 0.014 275);
-  --popover-foreground: oklch(0.985 0.003 275);
-  --primary: oklch(0.73 0.19 150);
-  --primary-foreground: oklch(0.18 0.03 150);
-  --secondary: oklch(0.235 0.02 275);
-  --secondary-foreground: oklch(0.985 0.003 275);
-  --muted: oklch(0.235 0.02 275);
-  --muted-foreground: oklch(0.712 0.022 275);
-  --accent: oklch(0.72 0.145 200);
-  --accent-foreground: oklch(0.16 0.02 275);
-  --destructive: oklch(0.62 0.22 25);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.73 0.19 150);
+  --background: var(--deep-water);
+  --foreground: oklch(0.96 0.01 140);
+  --card: oklch(0.31 0.035 172);
+  --card-foreground: oklch(0.96 0.01 140);
+  --popover: oklch(0.31 0.035 172);
+  --popover-foreground: oklch(0.96 0.01 140);
+  --primary: oklch(0.72 0.16 152);
+  --primary-foreground: oklch(0.22 0.05 160);
+  --secondary: oklch(0.35 0.03 172);
+  --secondary-foreground: oklch(0.96 0.01 140);
+  --muted: oklch(0.33 0.03 172);
+  --muted-foreground: oklch(0.76 0.02 150);
+  --accent: oklch(0.82 0.13 84);
+  --accent-foreground: oklch(0.26 0.05 78);
+  --border: oklch(0.96 0.02 150 / 0.12);
+  --input: oklch(0.96 0.02 150 / 0.18);
+  --ring: oklch(0.72 0.16 152);
+  --elevation-sm: 0 1px 2px -1px oklch(0 0 0 / 0.4);
+  --elevation-md: 0 6px 20px -8px oklch(0 0 0 / 0.5);
+  --elevation-lg: 0 18px 44px -16px oklch(0 0 0 / 0.6);
 }
 
 @theme inline {
@@ -103,6 +144,9 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-crown: var(--crown);
+  --color-crown-ink: var(--crown-ink);
+  --color-deep-water: var(--deep-water);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -122,43 +166,136 @@
   --color-rank-grandmaster: var(--rank-grandmaster);
   --color-rank-celestial: var(--rank-celestial);
 
+  /* Typography (spec C3) — display + body + mono, none of them Inter/Geist/
+   * Roboto. Font vars are injected by next/font in the root layout. */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, monospace;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+  --shadow-pad: var(--elevation-pad);
+
+  --ease-standard: var(--ease-standard);
+  --ease-out: var(--ease-out);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light;
     scroll-behavior: smooth;
+  }
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Respect users who prefer reduced motion. */
+  /* Display face for headings — set once, not per-component. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+  }
+
+  /* Prices/data use tabular mono figures everywhere. */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* Craft floor (spec C7) --------------------------------------------------- */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--pond) 22%, transparent);
+    color: var(--ink);
+  }
+
+  html {
+    scrollbar-color: color-mix(in oklch, var(--pond) 45%, var(--sage-line)) transparent;
+    scrollbar-width: thin;
+  }
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--pond) 32%, var(--sage-line));
+    border: 3px solid var(--background);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--pond) 55%, var(--sage-line));
+  }
+
+  /* Reduced motion is honored globally (spec: always respected). */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
     }
-
     *,
     *::before,
     *::after {
       animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
     }
   }
+}
 
-  ::selection {
-    background: color-mix(in oklch, var(--primary) 40%, transparent);
+/* --- Signature motion: the pond ripple (spec C4/D — one moment, quiet else) - */
+@keyframes pond-ripple {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes lily-rise {
+  0% {
+    transform: translateY(var(--travel-md));
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes crown-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
   }
 }

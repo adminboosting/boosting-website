@@ -334,3 +334,47 @@ PGlite (Postgres 18, in-process) with a Supabase shim (`supabase-shim.sql`) +
 `bootstrapDb()` (shim → all real migrations via the runner) + an `asActor()` helper
 implementing the Supabase pattern (`set local role` + transaction-scoped
 `request.jwt.claims`). This is the reusable substrate for all DB tests.
+
+---
+
+## Phase C — de-genericized design system
+
+Owner direction: **bright lily-pond** (light-first). Full details, the two-pass
+plan, and the token reference live in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md); the
+decisions worth logging here:
+
+- **Substitution.** The spec's `/mnt/skills/public/frontend-design/SKILL.md` is not
+  present in this environment; used the available `design:design-system` +
+  `artifact-design` skills plus the brainstorm→critique→revise method instead.
+- **Escaping the AI default (C1).** Moved off dark + acid-green + cyan to a
+  **light** system with a **deep, ownable pond green** (`oklch(0.5 0.132 153)`), a
+  **crown gold** secondary pulled from the mascot (no reflexive cyan), and a
+  **sage** neutral ramp. Boldness is spent on typography + the signature element,
+  not the palette.
+- **Tokens, one file (C2).** Everything (named palette → semantic roles → type,
+  spacing, radii, elevation, motion) is CSS variables in `app/globals.css`. Verified
+  no raw hex remains in components (grep) except the mascot/OG/icon brand artwork,
+  which is the intentional single-source SVG.
+- **Typography (C3).** Fraunces (display) / Hanken Grotesk (body) / Spline Sans
+  Mono (prices) via `next/font` — all SIL OFL, self-hosted, none of them
+  Inter/Geist/Roboto. Headings use the display face via a base rule; prices use a
+  `.tabular` mono class.
+- **Signature (C4).** `components/brand/lily-ladder.tsx` — the ranked climb as
+  lily pads with the crowned frog on top and a hover ripple. Placed on the home
+  hero and each game hub (replacing the flat, low-contrast tier chips).
+- **Buttons.** The "lily-pad press" — controls rest on a colored underside edge
+  (`shadow-pad`) and press into the pond on `:active`. Added a `crown` variant;
+  removed the old `accent` variant (unused).
+- **States (C5).** 404 / error / loading rewritten in the brand's voice ("This pad
+  is empty", "Something slipped into the pond") with real direction, not apology.
+- **Self-critique (Gate C).** Removed the home "Highlights" 3-card grid — its
+  points duplicated the hero stat row and three stacked card-grids was the
+  templated rhythm the redesign is trying to escape.
+- **Accessibility.** axe (`wcag2a`/`aa`/`21aa`) returns **0 violations** on the
+  home page, a money page, and the game hub — this also verifies AA color-contrast.
+  Fixed one pre-existing issue: the hero stat row used `<dl>/<dt>/<dd>` with
+  invalid nesting → changed to a `<ul>`.
+- **Verification note.** Next 16 allows only one `next dev` per directory and
+  another session held it, so Phase C was verified against a **production build**
+  (`next start` on port 3100) via the preview tools — not a blocker, just a
+  different port/mode.

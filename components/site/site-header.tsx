@@ -17,7 +17,11 @@ export function SiteHeader() {
         <Logo />
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="transition-colors hover:text-foreground">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="transition-colors hover:text-foreground"
+            >
               {link.label}
             </Link>
           ))}

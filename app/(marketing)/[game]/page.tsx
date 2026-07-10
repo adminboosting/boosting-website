@@ -13,7 +13,7 @@ import { SERVICES, getServiceByType } from "@/lib/catalog/content";
 import type { GameSlug, ServiceType } from "@/lib/catalog/types";
 import { getSiteUrl } from "@/lib/config";
 import { formatUsdFromCents } from "@/lib/money";
-import { cn } from "@/lib/utils";
+import { LilyLadder, tierColorVar } from "@/components/brand/lily-ladder";
 
 export const revalidate = 3600;
 
@@ -56,20 +56,6 @@ async function serviceFromCents(gameSlug: GameSlug, type: ServiceType): Promise<
       .map((r) => r.climbPriceCents),
   );
 }
-
-const TIER_COLOR: Record<string, string> = {
-  Iron: "bg-rank-iron/20 text-rank-iron",
-  Bronze: "bg-rank-bronze/20 text-rank-bronze",
-  Silver: "bg-rank-silver/20 text-rank-silver",
-  Gold: "bg-rank-gold/20 text-rank-gold",
-  Platinum: "bg-rank-platinum/20 text-rank-platinum",
-  Emerald: "bg-rank-emerald/20 text-rank-emerald",
-  Diamond: "bg-rank-diamond/20 text-rank-diamond",
-  Master: "bg-rank-master/20 text-rank-master",
-  Grandmaster: "bg-rank-grandmaster/20 text-rank-grandmaster",
-  Ascendant: "bg-rank-emerald/20 text-rank-emerald",
-  Celestial: "bg-rank-celestial/20 text-rank-celestial",
-};
 
 export default async function GameHubPage({ params }: { params: Promise<{ game: string }> }) {
   const slug = await resolveGame((await params).game);
@@ -143,26 +129,17 @@ export default async function GameHubPage({ params }: { params: Promise<{ game: 
         })}
       </div>
 
-      {/* Ladder preview */}
+      {/* Ladder preview — the signature lily-pad climb */}
       <section className="mt-14">
-        <h2 className="text-xl font-bold tracking-tight">The {game.name} ladder</h2>
+        <h2 className="text-xl font-semibold tracking-tight">The {game.name} climb</h2>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          {game.divisionsPerTier} divisions per tier. We boost every purchasable rank; the top ranks
-          are available as a custom quote.
+          {game.divisionsPerTier} divisions to a tier. We take you up every purchasable rank; the
+          crowned tiers at the top are a custom quote.
         </p>
-        <div className="mt-5 flex flex-wrap gap-2">
-          {tiers.map((tier) => (
-            <span
-              key={tier}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium",
-                TIER_COLOR[tier] ?? "bg-secondary text-muted-foreground",
-              )}
-            >
-              {tier}
-            </span>
-          ))}
-        </div>
+        <LilyLadder
+          className="mt-7"
+          rungs={tiers.map((tier) => ({ label: tier, colorVar: tierColorVar(tier) }))}
+        />
       </section>
     </div>
   );

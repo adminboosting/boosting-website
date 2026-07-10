@@ -1,7 +1,19 @@
 import type { Metadata } from "next";
+import { Fraunces, Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { BRAND_NAME, BRAND_TAGLINE, getSiteUrl } from "@/lib/config";
 import "./globals.css";
+
+// Type system (spec C3): a characterful editorial display (Fraunces), a warm
+// humanist body (Hanken Grotesk), and a precise mono for prices (Spline Sans
+// Mono). None are Inter/Geist/Roboto. All SIL OFL, self-hosted by next/font.
+const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
+const hanken = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-hanken", display: "swap" });
+const splineMono = Spline_Sans_Mono({
+  subsets: ["latin"],
+  variable: "--font-spline-mono",
+  display: "swap",
+});
 
 const siteUrl = getSiteUrl();
 const description = `${BRAND_NAME}: professional, safe boosting for League of Legends, Valorant, Overwatch 2, and Marvel Rivals — piloted or duo, priced live. ${BRAND_TAGLINE}`;
@@ -39,7 +51,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   };
 
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${fraunces.variable} ${hanken.variable} ${splineMono.variable}`}
+      suppressHydrationWarning
+    >
       <body className="min-h-dvh bg-background text-foreground antialiased">
         {children}
         <Analytics />

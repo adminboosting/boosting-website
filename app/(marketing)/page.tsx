@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { ArrowRight, Coins, Gamepad2, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { LilyLadder, tierColorVar } from "@/components/brand/lily-ladder";
 import { getGames } from "@/lib/catalog/source";
 import { SERVICES } from "@/lib/catalog/content";
 import { BRAND_NAME } from "@/lib/config";
 import { cn } from "@/lib/utils";
+
+// A generic climb for the hero's signature ladder (Bronze → the crowned top).
+const HERO_RUNGS = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master"].map((tier) => ({
+  label: tier,
+  colorVar: tierColorVar(tier),
+}));
 
 const GAME_ACCENT: Record<string, string> = {
   "league-of-legends": "text-rank-gold",
@@ -12,24 +19,6 @@ const GAME_ACCENT: Record<string, string> = {
   "overwatch-2": "text-rank-platinum",
   "marvel-rivals": "text-rank-master",
 };
-
-const HIGHLIGHTS = [
-  {
-    icon: ShieldCheck,
-    title: "Vetted pros only",
-    body: "First-party boosters, encrypted account handling, appear-offline by default.",
-  },
-  {
-    icon: Users,
-    title: "Piloted or duo",
-    body: "Let a pro climb for you, or play alongside them — your choice, priced live.",
-  },
-  {
-    icon: Coins,
-    title: "Crypto-first checkout",
-    body: "Pay with crypto, earn cashback store credit and loyalty discounts.",
-  },
-] as const;
 
 const STEPS = [
   {
@@ -53,67 +42,80 @@ export default async function HomePage() {
   const games = await getGames();
   return (
     <>
-      {/* Hero */}
+      {/* Hero — a thesis rooted in the subject (the ladder/pond), anchored by
+          the signature lily-pad climb, not a big-number gradient template. */}
       <section className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_50%_0%,color-mix(in_oklch,var(--primary)_22%,transparent),transparent)]"
-        />
-        <div className="mx-auto w-full max-w-6xl px-6 py-20 sm:py-28">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground">
-            <Sparkles className="size-3.5 text-accent" />
-            Piloted & duo boosting, priced live
-          </span>
-          <h1 className="mt-6 max-w-3xl text-balance text-4xl font-bold tracking-tight sm:text-6xl">
-            Leap up the ranks with <span className="text-primary">vetted pros</span>.
-          </h1>
-          <p className="mt-5 max-w-2xl text-pretty text-lg text-muted-foreground">
-            {BRAND_NAME} is a first-party boosting service for League of Legends, Valorant,
-            Overwatch 2, and Marvel Rivals. Configure your climb and get a live, transparent price —
-            no guesswork, no middlemen.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href="/games" className={cn(buttonVariants({ size: "lg" }))}>
-              Explore boosts
-              <ArrowRight />
-            </Link>
-            <Link
-              href="/how-it-works"
-              className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
-            >
-              How it works
-            </Link>
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          <div
+            className="absolute -left-40 top-[-25%] size-[38rem] rounded-full opacity-50 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(circle, color-mix(in oklch, var(--pond) 20%, transparent), transparent 70%)",
+            }}
+          />
+          <div
+            className="absolute right-[-12%] top-[8%] size-[26rem] rounded-full opacity-45 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(circle, color-mix(in oklch, var(--crown) 22%, transparent), transparent 70%)",
+            }}
+          />
+        </div>
+
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 sm:py-24 lg:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground">
+              <Sparkles className="size-3.5 text-crown-ink" />
+              Piloted or duo, priced live
+            </span>
+            <h1 className="mt-6 max-w-2xl text-balance text-4xl leading-[1.05] font-semibold sm:text-6xl">
+              Every rank is a lily pad. <span className="text-primary">We hop you to the top.</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-pretty text-lg text-muted-foreground">
+              {BRAND_NAME} is a first-party boosting service for League of Legends, Valorant,
+              Overwatch 2, and Marvel Rivals. Set your climb, see the exact price, and let a vetted
+              pro leap you up the ladder.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href="/games" className={cn(buttonVariants({ size: "lg" }))}>
+                See your price
+                <ArrowRight />
+              </Link>
+              <Link
+                href="/how-it-works"
+                className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+              >
+                How it works
+              </Link>
+            </div>
+
+            <ul className="mt-12 grid max-w-lg grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+              {[
+                { icon: Gamepad2, k: "4 games", v: "at launch" },
+                { icon: Users, k: "Piloted + duo", v: "your call" },
+                { icon: ShieldCheck, k: "Encrypted", v: "account handling" },
+                { icon: Coins, k: "Cashback", v: "every order" },
+              ].map(({ icon: Icon, k, v }) => (
+                <li key={k} className="flex items-start gap-2.5">
+                  <Icon className="mt-0.5 size-5 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold">{k}</p>
+                    <p className="text-xs text-muted-foreground">{v}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <dl className="mt-14 grid grid-cols-2 gap-6 sm:grid-cols-4">
-            {[
-              { icon: Gamepad2, k: "4 games", v: "at launch" },
-              { icon: Users, k: "Piloted + duo", v: "fulfilment" },
-              { icon: ShieldCheck, k: "Encrypted", v: "account handling" },
-              { icon: Coins, k: "Cashback", v: "on every order" },
-            ].map(({ icon: Icon, k, v }) => (
-              <div key={k} className="flex items-center gap-3">
-                <Icon className="size-5 text-primary" />
-                <div>
-                  <dt className="text-sm font-semibold">{k}</dt>
-                  <dd className="text-xs text-muted-foreground">{v}</dd>
-                </div>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </section>
-
-      {/* Highlights */}
-      <section className="mx-auto w-full max-w-6xl px-6 pb-8">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {HIGHLIGHTS.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="rounded-xl border border-border bg-card/50 p-6">
-              <Icon className="size-6 text-accent" />
-              <h3 className="mt-4 font-semibold">{title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+          {/* The signature ladder */}
+          <div className="relative mx-auto w-full max-w-sm">
+            <div className="rounded-2xl border border-border bg-card/70 p-7 shadow-lg backdrop-blur-sm sm:p-9">
+              <p className="mb-6 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                The climb
+              </p>
+              <LilyLadder rungs={HERO_RUNGS} />
             </div>
-          ))}
+          </div>
         </div>
       </section>
 

@@ -53,13 +53,11 @@ const LP_BANDS: Array<{ value: 0 | 25 | 50 | 75; label: string }> = [
 ];
 
 export function Calculator({ catalog }: { catalog: CalculatorCatalog }) {
-  const purchasable = useMemo(
-    () => catalog.ranks.filter((r) => r.isPurchasable),
-    [catalog.ranks],
-  );
+  const purchasable = useMemo(() => catalog.ranks.filter((r) => r.isPurchasable), [catalog.ranks]);
   const firstIdx = purchasable[0]?.sortIndex ?? 0;
   const secondIdx = purchasable[1]?.sortIndex ?? firstIdx;
-  const defaultRegion = catalog.regions.find((r) => r.isDefault)?.code ?? catalog.regions[0]?.code ?? "na";
+  const defaultRegion =
+    catalog.regions.find((r) => r.isDefault)?.code ?? catalog.regions[0]?.code ?? "na";
 
   // Common state
   const [mode, setMode] = useState<"piloted" | "duo">("piloted");
@@ -78,7 +76,9 @@ export function Calculator({ catalog }: { catalog: CalculatorCatalog }) {
 
   // Placements
   const firstBand = catalog.placementBands[0];
-  const [previousBand, setPreviousBand] = useState<PlacementBand>(firstBand?.band ?? "unranked_low");
+  const [previousBand, setPreviousBand] = useState<PlacementBand>(
+    firstBand?.band ?? "unranked_low",
+  );
   const [gamesCount, setGamesCount] = useState(firstBand?.minGames ?? 1);
 
   // Net wins
@@ -116,9 +116,7 @@ export function Calculator({ catalog }: { catalog: CalculatorCatalog }) {
         config: {
           currentRankIndex,
           desiredRankIndex,
-          ...(catalog.isLoL
-            ? { currentLpBand, lpGainBand, queue }
-            : {}),
+          ...(catalog.isLoL ? { currentLpBand, lpGainBand, queue } : {}),
         },
       };
     }
@@ -279,7 +277,13 @@ export function Calculator({ catalog }: { catalog: CalculatorCatalog }) {
                 onChange={(v) => setNwRankIndex(Number(v))}
                 options={catalog.ranks.map((r) => ({ value: r.sortIndex, label: r.label }))}
               />
-              <Stepper label="Number of wins" value={winsCount} min={1} max={10} onChange={setWinsCount} />
+              <Stepper
+                label="Number of wins"
+                value={winsCount}
+                min={1}
+                max={10}
+                onChange={setWinsCount}
+              />
             </div>
           </Section>
         )}
@@ -322,7 +326,9 @@ export function Calculator({ catalog }: { catalog: CalculatorCatalog }) {
                     key={mod.key}
                     className={cn(
                       "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
-                      checked ? "border-primary/60 bg-primary/5" : "border-border hover:bg-secondary/40",
+                      checked
+                        ? "border-primary/60 bg-primary/5"
+                        : "border-border hover:bg-secondary/40",
                     )}
                   >
                     <input
@@ -410,10 +416,7 @@ function PricePanel({
             {quote.lines.map((line, i) => (
               <div key={`${line.key}-${i}`} className="flex items-center justify-between gap-3">
                 <dt
-                  className={cn(
-                    "text-muted-foreground",
-                    line.kind === "base" && "text-foreground",
-                  )}
+                  className={cn("text-muted-foreground", line.kind === "base" && "text-foreground")}
                 >
                   {line.label}
                 </dt>
