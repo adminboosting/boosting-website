@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
-import { GAMES } from "@/lib/catalog/data";
+import { getGames } from "@/lib/catalog/source";
 import { BRAND_NAME, SUPPORT_EMAIL_FALLBACK } from "@/lib/config";
 
 const COMPANY_LINKS = [
@@ -29,7 +29,7 @@ export function SiteFooter() {
           </div>
 
           <FooterColumn title="Games">
-            {GAMES.map((game) => (
+            {getGames().map((game) => (
               <FooterLink key={game.slug} href={`/${game.slug}`}>
                 {game.name}
               </FooterLink>

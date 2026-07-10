@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildPricingContext } from "@/lib/catalog/data";
+import { getPricingContext } from "@/lib/catalog/source";
 import { computeQuote } from "@/lib/pricing/engine";
 import { PricingError, type QuoteInput } from "@/lib/pricing/types";
 import { quoteRequestSchema } from "@/lib/schemas/quote";
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   try {
     // account is null for anonymous quotes; Phase 2 attaches the signed-in
     // customer's loyalty tier + store-credit balance server-side.
-    const ctx = buildPricingContext(input.gameSlug, input.serviceType, {
+    const ctx = getPricingContext(input.gameSlug, input.serviceType, {
       couponCode: input.couponCode,
       account: null,
     });

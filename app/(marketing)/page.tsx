@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Coins, Gamepad2, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { GAMES } from "@/lib/catalog/data";
+import { getGames } from "@/lib/catalog/source";
 import { SERVICES } from "@/lib/catalog/content";
 import { BRAND_NAME } from "@/lib/config";
 import { cn } from "@/lib/utils";
@@ -120,7 +120,7 @@ export default function HomePage() {
           Rank boosts, placements, and net wins for every title.
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {GAMES.map((game) => (
+          {getGames().map((game) => (
             <Link
               key={game.slug}
               href={`/${game.slug}`}

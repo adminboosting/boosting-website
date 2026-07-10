@@ -3,12 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, ChevronRight } from "lucide-react";
 import {
-  GAMES,
   getGame,
+  getGames,
   getNetWinGroups,
   getPlacementPrices,
   getRanks,
-} from "@/lib/catalog/data";
+} from "@/lib/catalog/source";
 import { SERVICES, getServiceByType } from "@/lib/catalog/content";
 import type { GameSlug, ServiceType } from "@/lib/catalog/types";
 import { getSiteUrl } from "@/lib/config";
@@ -18,11 +18,11 @@ import { cn } from "@/lib/utils";
 export const revalidate = 3600;
 
 export function generateStaticParams() {
-  return GAMES.map((g) => ({ game: g.slug }));
+  return getGames().map((g) => ({ game: g.slug }));
 }
 
 function resolveGame(slug: string): GameSlug | null {
-  return GAMES.find((g) => g.slug === slug)?.slug ?? null;
+  return getGames().find((g) => g.slug === slug)?.slug ?? null;
 }
 
 export async function generateMetadata({

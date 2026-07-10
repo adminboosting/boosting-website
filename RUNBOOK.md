@@ -86,20 +86,26 @@ redeploy.
 The database structure and starter data live as SQL files in `supabase/migrations/`
 and `supabase/seed.sql`. Two easy ways to apply them (no coding):
 
-**Option A — Supabase dashboard (simplest, no installs):**
+**Option A — the project's migration runner (recommended, repeatable):**
+This project ships its own runner (no Supabase CLI needed — that installer is
+unreliable on this machine). It applies the migrations **in order**, remembers which
+ones it already ran, and is safe to re-run.
+```bash
+# One time: put your Supabase connection string (Step 4, SUPABASE_DB_URL 🔒)
+#           into .env.local, then:
+pnpm db:migrate   # applies every supabase/migrations/*.sql in order (forward-only)
+pnpm db:seed      # loads the starter catalog/prices (idempotent — safe to re-run)
+```
+Both commands print what they did. `db:migrate` records applied files in a
+`_schema_migrations` table, so re-running only applies anything new.
+
+**Option B — Supabase dashboard (no installs):**
 1. In Supabase, open **SQL Editor → New query**.
 2. Open each file in `supabase/migrations/` **in order** (they're numbered), paste
    its contents, and click **Run**. Then do the same with `supabase/seed.sql`.
 
-**Option B — Supabase CLI (for repeatability):**
-The CLI isn't bundled with this project (its installer is unreliable here). Install
-it separately on a Mac with Homebrew:
-```bash
-brew install supabase/tap/supabase
-supabase link --project-ref <your-project-ref>   # ref is in your Supabase URL
-supabase db push                                 # applies migrations
-```
-Ask your developer/Claude to run these if you'd rather not.
+> Prefer Option A whenever you can run a terminal command (or ask Claude to) — it's
+> repeatable and can't apply migrations in the wrong order.
 
 ## Step 6 — 🟡 (from Phase 2) Generate the credential encryption key
 

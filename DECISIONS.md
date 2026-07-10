@@ -158,3 +158,106 @@ and social image (`app/opengraph-image.tsx`, rendered via `next/og`); light copy
 tweaks ("Leap up the ranks…"); and doc/config brand references + the rankedfrogs.com
 domain in RUNBOOK. Cyan retained as the cool secondary accent. Verified live: green
 theme, mascot, favicon, and OG image all render; build/typecheck/lint/tests green.
+
+---
+
+## Continuation run — Phases A–D (hardening, DB, design, motion)
+
+Plan for this run (worked in order, committing per logical unit, self-verifying at
+each Gate): **A** verified fixes + hardening → **B** full DB schema + RLS + seed →
+**C** de-genericized design system → **D** motion architecture + Claude Design
+handoff. Server-authoritative pricing and RLS are never weakened for convenience;
+everything stays on free tiers.
+
+### Owner decisions captured at the start of this run (non-technical Q&A)
+
+1. **Database: build + test locally now, connect live Supabase later.** No Docker,
+   no account signup required now. We verify the whole DB layer against an
+   in-process Postgres (PGlite) and leave the live-Supabase connection as the
+   documented RUNBOOK steps. (Consistent with the earlier Phase-0 "no Docker,
+   hosted Supabase" decision — this just adds a zero-setup *local test* path.)
+2. **Look & feel (Phase C): "Bright lily-pond — light & fresh."** The redesign
+   moves from today's dark theme to a **light-primary** system with frog-green as
+   the hero color. Dark mode remains supported but light is the default. The AA
+   guardrail becomes "green must pass AA on light" (dark-green text is fine); the
+   boldness is spent on typography + one signature moment, not the palette.
+3. **Reviews/trust band: clean "coming soon", ready for Trustpilot.** No fabricated
+   reviews, no self-serving review/aggregateRating schema. The section is designed
+   but visibly awaiting real data.
+
+### Deviation — the `frontend-design` skill is not on this machine
+
+The spec says to read `/mnt/skills/public/frontend-design/SKILL.md` before Phase C.
+That path does not exist in this environment (it's from a different host). Substitute:
+the equivalent design skills available here (`design:design-system`, `artifact-design`,
+`dataviz`) plus the two-pass brainstorm→critique→revise method the spec itself
+prescribes. Recorded so Phase C's provenance is clear.
+
+### Phase A — resolved decisions
+
+- **A1/A2 — `proxy.ts` is a redirect/UX layer, not a security boundary.** Confirmed
+  root `proxy.ts` (no leftover `middleware.ts`), Next 16.2.10. Added a header comment
+  stating it replaces `middleware.ts` as of Next 16 and encoding the **three-layer
+  auth rule** as an enforceable written rule: (1) proxy may only *redirect*; (2) every
+  Server Action / Route Handler independently verifies identity **and** resource
+  ownership; (3) RLS is the final gate; credentials deny all PostgREST access. No
+  protected action relies on proxy alone.
+- **A3 — CI gate baked into the Vercel build.** `build` = `ci:checks && next build &&
+  check:secrets`, where `ci:checks` = typecheck + lint + fast tests. `vercel-build`
+  aliases `build` (Vercel honors it regardless of how it invokes the build); a
+  `build:next` escape hatch runs `next build` alone for fast local iteration. The
+  secret-leak grep (`check:secrets`, value-based — catches the real secret material
+  for `SUPABASE_SERVICE_ROLE_KEY`, `CREDENTIAL_MASTER_KEY`, `ANTHROPIC_API_KEY`, and
+  more) runs **after** `next build` since it scans `.next/static`. Verified: the whole
+  chain runs and passes locally. Parked `.github/workflows-disabled/ci.yml` mirrors it
+  (and now also runs `pnpm test:db`).
+- **A4 — migration runner is node-postgres + a DB-agnostic core.** The Supabase CLI
+  is not used (its npm package OOM-crashes here, per Phase 0). `scripts/lib/migrate-core.ts`
+  is pure and driver-agnostic (talks to a `MigrationClient` interface), so the SAME
+  logic runs against real Postgres/Supabase (`scripts/migrate.ts`, via `pg`, `pnpm
+  db:migrate`) and against PGlite in tests. Forward-only, one transaction per
+  migration (atomic rollback on failure), applied files tracked in `_schema_migrations`,
+  idempotent. Seeds are separate and idempotent (`scripts/seed.ts`, `pnpm db:seed`).
+  Proven by `tests/db/migrate-runner.test.ts` (ordering, idempotency, rollback).
+- **A5 — single data-access layer `lib/catalog/source.ts`.** It is now the ONLY path
+  the calculator, pages, sitemap, and footer read catalog data through; nothing else
+  imports `lib/catalog/data.ts` (verified by grep). `data.ts` stays intact as the
+  file-backed implementation (the 44 pricing tests still target it directly).
+  **Kept synchronous in Phase A on purpose** — a pure import-swap keeps every existing
+  test trivially green. Phase B flips `source.ts` internals to async DB-with-file-
+  fallback and does the awaited cutover **guarded by the price-parity regression
+  test**, which is exactly where the spec sequences that risk.
+- **A6 — RLS role helper will be `app_current_role()`**, never `current_role` (avoids
+  shadowing the Postgres built-in). All Phase B policies use this name. Recorded now,
+  used in B.
+- **A7 — one tested case mapper `lib/catalog/mapping.ts`.** Deep snake_case↔camelCase
+  for DB rows ↔ app objects; keys listed in `preserveValueOf` (default `["config"]`)
+  are copied verbatim in both directions so `orders.config` jsonb stays camelCase end
+  to end. Covered by `tests/unit/mapping.test.ts` (conversion, nesting, arrays, Date
+  pass-through, config preservation, round-trip identity).
+
+### Phase A — resolved dependency versions & DB tooling
+
+| Package | Version | Why |
+| --- | --- | --- |
+| `pg` | 8.22.0 | node-postgres — drives the real migration/seed runner |
+| `@types/pg` | 8.20.0 | types for `pg` |
+| `@electric-sql/pglite` | 0.5.4 | in-process Postgres 18 (WASM) for DB tests — no Docker |
+
+**PGlite viability (smoke-tested up front, key facts for Phase B):**
+- Reports **PostgreSQL 18.3**. `gen_random_uuid()` is in core — no extension needed.
+- **No `pgcrypto`** bundled. This is fine: the **credential vault encrypts in the Node
+  app layer** with `CREDENTIAL_MASTER_KEY` (AES-256-GCM via `node:crypto`), so the DB
+  only ever stores ciphertext. This matches the existing `generate:key` script and the
+  "32 raw bytes, base64" env var, and is stronger than DB-side pgcrypto (a DB dump
+  reveals nothing without the app key).
+- **RLS is genuinely enforced** under the Supabase-style pattern: `begin; set local
+  role authenticated; select set_config('request.jwt.claims', '<json>', true); <query>;
+  commit;`. Two gotchas locked in for the Phase B harness: the JWT claim must be set in
+  the **same transaction** as the query (an implicit per-statement transaction loses
+  it), and the `auth.uid()` shim must be **null-safe** for an empty/unset GUC
+  (`nullif(current_setting(...,true),'')::jsonb`) or it throws on empty string.
+
+**Test split:** `pnpm test` = fast unit + non-DB integration (this is the Vercel build
+gate, per spec "unit tests"). `pnpm test:db` = PGlite-backed DB tests (heavier), run in
+CI and at every gate. `pnpm verify` = the full local gate (`ci:checks` + `test:db`).

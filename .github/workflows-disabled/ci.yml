@@ -36,6 +36,9 @@ jobs:
       - name: Unit + integration tests
         run: pnpm test
 
+      - name: Database tests (PGlite — RLS, migrations, price parity)
+        run: pnpm test:db
+
       - name: Build
         run: pnpm build
         env:

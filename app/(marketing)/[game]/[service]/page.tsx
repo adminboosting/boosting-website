@@ -4,15 +4,15 @@ import { notFound } from "next/navigation";
 import { ChevronRight, Coins, Gauge, ShieldCheck, Users } from "lucide-react";
 import { Calculator, type CalculatorCatalog } from "@/components/calculator/calculator";
 import {
-  DEFAULT_PRICING_SETTINGS,
-  GAMES,
   getGame,
+  getGames,
   getModifiers,
   getNetWinGroups,
   getPlacementPrices,
+  getPricingSettings,
   getRanks,
   getRegions,
-} from "@/lib/catalog/data";
+} from "@/lib/catalog/source";
 import {
   allMoneyPagePaths,
   getMoneyPageContent,
@@ -31,7 +31,7 @@ export function generateStaticParams() {
 type PageParams = { game: string; service: string };
 
 function resolve(params: PageParams): { gameSlug: GameSlug; serviceType: ServiceType } | null {
-  const game = GAMES.find((g) => g.slug === params.game);
+  const game = getGames().find((g) => g.slug === params.game);
   const service = getServiceBySlug(params.service);
   if (!game || !service) return null;
   return { gameSlug: game.slug, serviceType: service.type };
@@ -74,12 +74,13 @@ function lowestPriceCents(gameSlug: GameSlug, serviceType: ServiceType): number 
 }
 
 function buildCatalog(gameSlug: GameSlug, serviceType: ServiceType): CalculatorCatalog {
+  const settings = getPricingSettings();
   return {
     gameSlug,
     serviceType,
     isLoL: gameSlug === "league-of-legends",
-    duoMultiplierBp: DEFAULT_PRICING_SETTINGS.duoMultiplierBp,
-    volumeDiscounts: DEFAULT_PRICING_SETTINGS.volumeDiscounts,
+    duoMultiplierBp: settings.duoMultiplierBp,
+    volumeDiscounts: settings.volumeDiscounts,
     ranks: getRanks(gameSlug).map((r) => ({
       sortIndex: r.sortIndex,
       label: r.label,

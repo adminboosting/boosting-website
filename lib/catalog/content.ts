@@ -1,5 +1,5 @@
 import type { GameSlug, ServiceType } from "@/lib/catalog/types";
-import { getGame } from "@/lib/catalog/data";
+import { getGame } from "@/lib/catalog/source";
 
 /**
  * Marketing content + SEO metadata for the public money pages. Templated from

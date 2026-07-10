@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { GAMES } from "@/lib/catalog/data";
+import { getGames } from "@/lib/catalog/source";
 import { allMoneyPagePaths } from "@/lib/catalog/content";
 import { getSiteUrl } from "@/lib/config";
 
@@ -18,7 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/legal/refund-policy",
   ];
 
-  const gameRoutes = GAMES.map((g) => `/${g.slug}`);
+  const gameRoutes = getGames().map((g) => `/${g.slug}`);
   const moneyRoutes = allMoneyPagePaths().map((p) => `/${p.game}/${p.service}`);
 
   return [...staticRoutes, ...gameRoutes, ...moneyRoutes].map((path) => ({
