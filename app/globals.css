@@ -299,3 +299,45 @@
     transform: translateY(-2px);
   }
 }
+
+@keyframes total-pop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Motion slots (spec D3). Each animatable spot's DEFAULT motion is one class
+ * here, named to its slot ID in lib/motion.ts, so Claude Design output can
+ * replace it in ONE place without touching the component. The global
+ * reduced-motion rule above collapses these to their end state; the scroll-
+ * driven reveal is additionally gated behind prefers-reduced-motion.
+ * ------------------------------------------------------------------------- */
+@layer components {
+  .motion-hero-enter {
+    animation: lily-rise var(--duration-slow) var(--ease-out) both;
+  }
+  .motion-line-enter {
+    animation: lily-rise var(--duration-base) var(--ease-out) both;
+  }
+  .motion-total-pop {
+    animation: total-pop var(--duration-base) var(--ease-standard);
+    transform-origin: right center;
+  }
+  /* section.reveal — rises as it scrolls into view, where supported. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .motion-reveal {
+        animation: lily-rise linear both;
+        animation-timeline: view();
+        animation-range: entry 5% cover 18%;
+      }
+    }
+  }
+}

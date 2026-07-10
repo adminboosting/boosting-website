@@ -168,4 +168,29 @@ are disabled under reduced motion. Used on the home hero (a generic climb) and
 each game hub (that game's tiers). This is where the design spends its boldness;
 everything around it stays quiet.
 
-_(The Phase D motion slot registry is appended below when Phase D lands.)_
+## 7. Motion slot registry (spec D2/D4)
+
+Every animatable spot has a stable ID in [`lib/motion.ts`](lib/motion.ts) — the
+single swap-point. Default motion ships now (restrained: one signature moment at
+the hero/ladder, quiet elsewhere) and every slot has a reduced-motion fallback.
+Motion tokens are in §5. The paste-ready per-slot brief for Claude Design is
+[CLAUDE_DESIGN_BRIEF.md](CLAUDE_DESIGN_BRIEF.md).
+
+| Slot ID | Intent | Default impl (swap point) | Reduced-motion |
+| --- | --- | --- | --- |
+| `hero.enter` | Hero + ladder rise in on load | `.motion-hero-enter` (globals.css) | End state, no travel |
+| `hero.mascot-idle` | Crowned frog bobs on the top pad | `crown-bob` in `lily-ladder.tsx` | No bob (`motion-safe`) |
+| `section.reveal` | Sections rise as they scroll in | `.motion-reveal` (scroll-timeline) | Off, static |
+| `calculator.line-enter` | New price line rises in | `.motion-line-enter` (keyed) | End state |
+| `calculator.line-update` | Changed line highlights | _stub_ (reserved) | n/a yet |
+| `calculator.total-change` | Total pops on recalc | `.motion-total-pop` (keyed by total) | No scale; still announced |
+| `rankLadder.tier-hover` | Pad lifts + ripples on hover | `pond-ripple` in `lily-ladder.tsx` | No lift/ripple |
+| `button.press` | Control presses into the pond | `active:` classes in `button.tsx` | Instant press |
+| `nav.transition` | Nav link color easing | `transition-colors` in `site-header.tsx` | Instant |
+| `loading.skeleton` | Calm pulse while loading | `animate-pulse` in `loading.tsx` | No pulse |
+| `order.status-change` | Status badge advances | _stub_ (Phase 2 surface) | n/a yet |
+
+To replace a slot with Claude Design output: paste the returned CSS `@keyframes`
+(named to the slot) or framer-motion `Variants` and wire it in the one place named
+above, behind the reduced-motion guard. See CLAUDE_DESIGN_BRIEF.md for the exact
+request format per slot.

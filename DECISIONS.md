@@ -378,3 +378,36 @@ decisions worth logging here:
   another session held it, so Phase C was verified against a **production build**
   (`next start` on port 3100) via the preview tools — not a blocker, just a
   different port/mode.
+
+---
+
+## Phase D — motion architecture + Claude Design handoff
+
+- **Motion tokens (D1)** live in `app/globals.css` (durations, easings, travel) and
+  are documented in DESIGN_SYSTEM.md §5.
+- **Slot registry (D2)** is `lib/motion.ts` — 11 slots, each with a stable ID,
+  location, intent, target, default impl (the single swap-point), and reduced-motion
+  fallback. Also mirrored as a table in DESIGN_SYSTEM.md §7.
+- **Default motion shipped (D3)** for every non-stub slot, restrained per the owner
+  default: `hero.enter` + `hero.mascot-idle` (the signature moment), `section.reveal`
+  (scroll-timeline), `calculator.line-enter`, `calculator.total-change`,
+  `rankLadder.tier-hover`, `button.press`, `nav.transition`, `loading.skeleton`.
+  Stubs reserved: `calculator.line-update`, `order.status-change` (Phase 2 surface).
+  Each slot is swappable in one place (a `globals.css` `.motion-*` class named to the
+  slot, or the named component).
+- **No framer-motion dependency.** Defaults are CSS keyframes + classes (lean, free,
+  SSG-friendly). CLAUDE_DESIGN_BRIEF.md lets Claude Design return either CSS
+  `@keyframes` (default) or framer-motion `Variants`; adopting framer would be a
+  dependency decision to confirm at that point.
+- **Reduced motion** is honored globally (the `prefers-reduced-motion: reduce` rule
+  collapses all animation/transition durations; verified present in the served CSS)
+  and `section.reveal` is additionally gated behind `no-preference` + an
+  `@supports (animation-timeline: view())`.
+- **Handoff docs (D4/D5).** DESIGN_SYSTEM.md carries the token reference + slot
+  registry (the portable cross-surface contract). CLAUDE_DESIGN_BRIEF.md is the
+  final, paste-ready per-slot brief (intent, exact token names/values, constraints
+  incl. max duration + mandatory reduced-motion variant + no-layout-dependency, and
+  the requested output format), plus a "how to hand back" loop for the owner.
+- **Regression check.** Keying the total `<span>` by `totalCents` (for the pop) keeps
+  the aria-live update working — verified the total recomputes on interaction
+  ($8.00 → $211.85) with no console errors.

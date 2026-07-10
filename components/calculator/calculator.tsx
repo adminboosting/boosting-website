@@ -5,6 +5,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import type { GameSlug, PlacementBand, ServiceType } from "@/lib/catalog/types";
 import type { Quote } from "@/lib/pricing/types";
 import { formatUsdFromCents } from "@/lib/money";
+import { motion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 export interface CalcRank {
@@ -414,7 +415,13 @@ function PricePanel({
         <>
           <dl className="mt-4 space-y-2 text-sm">
             {quote.lines.map((line, i) => (
-              <div key={`${line.key}-${i}`} className="flex items-center justify-between gap-3">
+              <div
+                key={`${line.key}-${i}`}
+                className={cn(
+                  "flex items-center justify-between gap-3",
+                  motion.calculatorLineEnter,
+                )}
+              >
                 <dt
                   className={cn("text-muted-foreground", line.kind === "base" && "text-foreground")}
                 >
@@ -437,7 +444,8 @@ function PricePanel({
             <div className="flex items-end justify-between">
               <span className="text-sm text-muted-foreground">Total</span>
               <span
-                className="text-2xl font-bold tabular-nums"
+                key={quote.totalCents}
+                className={cn("text-2xl font-bold tabular-nums", motion.calculatorTotalChange)}
                 aria-live="polite"
                 aria-atomic="true"
               >

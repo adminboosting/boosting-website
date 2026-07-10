@@ -5,6 +5,7 @@ import { LilyLadder, tierColorVar } from "@/components/brand/lily-ladder";
 import { getGames } from "@/lib/catalog/source";
 import { SERVICES } from "@/lib/catalog/content";
 import { BRAND_NAME } from "@/lib/config";
+import { motion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 // A generic climb for the hero's signature ladder (Bronze → the crowned top).
@@ -63,7 +64,7 @@ export default async function HomePage() {
         </div>
 
         <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 sm:py-24 lg:grid-cols-[1.05fr_0.95fr]">
-          <div>
+          <div className={motion.heroEnter}>
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground">
               <Sparkles className="size-3.5 text-crown-ink" />
               Piloted or duo, priced live
@@ -108,7 +109,7 @@ export default async function HomePage() {
           </div>
 
           {/* The signature ladder */}
-          <div className="relative mx-auto w-full max-w-sm">
+          <div className={cn("relative mx-auto w-full max-w-sm", motion.heroEnter)}>
             <div className="rounded-2xl border border-border bg-card/70 p-7 shadow-lg backdrop-blur-sm sm:p-9">
               <p className="mb-6 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 The climb
@@ -120,7 +121,10 @@ export default async function HomePage() {
       </section>
 
       {/* Games */}
-      <section id="games" className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-16">
+      <section
+        id="games"
+        className={cn("mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-16", motion.sectionReveal)}
+      >
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Launch games</h2>
         <p className="mt-2 text-muted-foreground">
           Rank boosts, placements, and net wins for every title.
@@ -158,7 +162,10 @@ export default async function HomePage() {
       </section>
 
       {/* How it works */}
-      <section id="how" className="mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-16">
+      <section
+        id="how"
+        className={cn("mx-auto w-full max-w-6xl scroll-mt-20 px-6 py-16", motion.sectionReveal)}
+      >
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">How it works</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {STEPS.map((step) => (
