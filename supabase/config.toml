@@ -2,7 +2,7 @@
 # regenerate a fuller version. Migrations live in supabase/migrations/*.sql and
 # seed data in supabase/seed.sql. See RUNBOOK.md for how to apply them to the
 # free hosted project (no local Docker required).
-project_id = "rankforge"
+project_id = "rankedfrogs"
 
 [api]
 enabled = true

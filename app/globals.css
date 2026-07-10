@@ -4,9 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * RankForge — dark, competitive-gaming theme.
- * A single vivid accent (electric violet) with a cyan secondary accent, sourced
- * from CSS variables so re-theming is trivial. The site is dark-first; :root and
+ * RankedFrogs — dark, competitive-gaming theme.
+ * A single vivid accent (frog green) with a cyan secondary accent, sourced from
+ * CSS variables so re-theming is trivial. The site is dark-first; :root and
  * .dark share the same palette.
  */
 :root {
@@ -21,8 +21,8 @@
   --popover: oklch(0.178 0.014 275);
   --popover-foreground: oklch(0.985 0.003 275);
 
-  --primary: oklch(0.62 0.24 296);
-  --primary-foreground: oklch(0.985 0.012 296);
+  --primary: oklch(0.73 0.19 150);
+  --primary-foreground: oklch(0.18 0.03 150);
 
   --secondary: oklch(0.235 0.02 275);
   --secondary-foreground: oklch(0.985 0.003 275);
@@ -41,9 +41,9 @@
 
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.62 0.24 296);
+  --ring: oklch(0.73 0.19 150);
 
-  --chart-1: oklch(0.62 0.24 296);
+  --chart-1: oklch(0.73 0.19 150);
   --chart-2: oklch(0.72 0.145 200);
   --chart-3: oklch(0.7 0.16 155);
   --chart-4: oklch(0.78 0.15 85);
@@ -69,8 +69,8 @@
   --card-foreground: oklch(0.985 0.003 275);
   --popover: oklch(0.178 0.014 275);
   --popover-foreground: oklch(0.985 0.003 275);
-  --primary: oklch(0.62 0.24 296);
-  --primary-foreground: oklch(0.985 0.012 296);
+  --primary: oklch(0.73 0.19 150);
+  --primary-foreground: oklch(0.18 0.03 150);
   --secondary: oklch(0.235 0.02 275);
   --secondary-foreground: oklch(0.985 0.003 275);
   --muted: oklch(0.235 0.02 275);
@@ -81,7 +81,7 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.62 0.24 296);
+  --ring: oklch(0.73 0.19 150);
 }
 
 @theme inline {

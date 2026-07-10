@@ -24,7 +24,7 @@ export function SiteFooter() {
           <div>
             <Logo />
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-              First-party boosting by vetted pros. Climb faster, safely.
+              First-party boosting by vetted pros. Leap up the ranks, safely.
             </p>
           </div>
 

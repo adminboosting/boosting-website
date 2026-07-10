@@ -145,3 +145,16 @@ pinned in `packageManager`).
 - **Legal pages** (`/legal/{terms,privacy,refund-policy}`) seeded with clearly
   labeled PLACEHOLDER, review-by-a-lawyer drafts covering non-affiliation, ToS-risk
   transparency, age requirement, credential encryption/auto-deletion, and refunds.
+
+### Rebrand: RankForge → RankedFrogs (committed)
+
+The owner finalized the brand as **RankedFrogs** (domain **rankedfrogs.com**), with a
+**crowned-frog mascot**, **frog-green** accent, and a **balanced** tone (friendly, a
+light pun or two, still professional). Because the name is single-sourced, the change
+was: `BRAND_NAME` constant; theme accent (violet → green oklch(0.73 0.19 150), dark
+foreground for contrast on green); a new `components/brand/frog-mascot.tsx` whose SVG
+markup is the single source of truth for the header logo, favicon (`app/icon.svg`),
+and social image (`app/opengraph-image.tsx`, rendered via `next/og`); light copy
+tweaks ("Leap up the ranks…"); and doc/config brand references + the rankedfrogs.com
+domain in RUNBOOK. Cyan retained as the cool secondary accent. Verified live: green
+theme, mascot, favicon, and OG image all render; build/typecheck/lint/tests green.

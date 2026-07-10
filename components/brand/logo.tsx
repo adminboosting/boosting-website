@@ -1,11 +1,11 @@
 import Link from "next/link";
+import { FrogMascot } from "@/components/brand/frog-mascot";
 import { BRAND_NAME } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
 /**
- * Brand wordmark. The glyph is derived from BRAND_NAME so a rename needs no
- * change here (spec §1: rename touches only the constant, the DB row, and the
- * logo asset).
+ * Brand wordmark: the crowned-frog mascot + the name from BRAND_NAME. A rename
+ * touches only the constant, the DB `brand_name` row, and the mascot artwork.
  */
 export function Logo({ className }: { className?: string }) {
   return (
@@ -17,9 +17,7 @@ export function Logo({ className }: { className?: string }) {
       )}
       aria-label={`${BRAND_NAME} home`}
     >
-      <span className="grid size-7 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-        {BRAND_NAME.charAt(0)}
-      </span>
+      <FrogMascot size={30} />
       <span className="text-lg">{BRAND_NAME}</span>
     </Link>
   );

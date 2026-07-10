@@ -1,9 +1,10 @@
-# RankForge
+# RankedFrogs
 
-> **RankForge** is a working name (a placeholder). It is sourced from a single
-> constant, `BRAND_NAME` in [`lib/config.ts`](lib/config.ts), plus a `brand_name`
-> row in `site_settings` once the database is wired. Renaming the platform touches
-> only that constant, that DB row, and the logo asset.
+> **RankedFrogs** (rankedfrogs.com) is the brand. The name is sourced from a
+> single constant, `BRAND_NAME` in [`lib/config.ts`](lib/config.ts), plus a
+> `brand_name` row in `site_settings` once the database is wired. A future rename
+> touches only that constant, that DB row, and the mascot artwork in
+> [`components/brand/frog-mascot.tsx`](components/brand/frog-mascot.tsx).
 
 A production-grade, **first-party game-boosting platform** (agency model: the
 company sets prices; its own vetted boosters fulfill orders). Launch titles:

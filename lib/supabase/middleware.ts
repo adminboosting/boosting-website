@@ -12,7 +12,11 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return response;
+  // Skip when Supabase isn't configured yet, or still holds the example
+  // placeholder values, so the site runs without any backend.
+  if (!url || !anonKey || url.includes("YOUR-PROJECT") || anonKey === "your-anon-key") {
+    return response;
+  }
 
   const supabase = createServerClient(url, anonKey, {
     cookies: {
@@ -32,8 +36,13 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   });
 
   // Touch the user to trigger a token refresh when needed. Do not add logic
-  // between client creation and this call (Supabase SSR guidance).
-  await supabase.auth.getUser();
+  // between client creation and this call (Supabase SSR guidance). Guard against
+  // an unreachable/misconfigured project so it can never 500 the whole site.
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // Supabase unreachable — proceed unauthenticated.
+  }
 
   return response;
 }

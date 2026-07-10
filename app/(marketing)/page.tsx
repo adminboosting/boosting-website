@@ -64,7 +64,7 @@ export default function HomePage() {
             Piloted & duo boosting, priced live
           </span>
           <h1 className="mt-6 max-w-3xl text-balance text-4xl font-bold tracking-tight sm:text-6xl">
-            Climb faster with <span className="text-primary">vetted pros</span>.
+            Leap up the ranks with <span className="text-primary">vetted pros</span>.
           </h1>
           <p className="mt-5 max-w-2xl text-pretty text-lg text-muted-foreground">
             {BRAND_NAME} is a first-party boosting service for League of Legends, Valorant,

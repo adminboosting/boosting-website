@@ -1,4 +1,4 @@
-# RUNBOOK — operating RankForge
+# RUNBOOK — operating RankedFrogs
 
 This is your **non-technical operator's manual**. It lists every manual action
 you (the owner) need to take — creating accounts, getting keys, pasting them into
@@ -39,9 +39,9 @@ code is on GitHub's `main` branch, Vercel can deploy it.
 ## Step 2 — 🟢 Connect Vercel (free hosting)
 
 1. Go to **vercel.com** and sign up with your GitHub account.
-2. Click **Add New… → Project**, then **Import** the RankForge repository.
+2. Click **Add New… → Project**, then **Import** the RankedFrogs repository.
 3. Vercel auto-detects Next.js. Leave the defaults. Click **Deploy**.
-4. In ~1 minute you'll get a live URL like `https://rankforge-xxxx.vercel.app`.
+4. In ~1 minute you'll get a live URL like `https://rankedfrogs-xxxx.vercel.app`.
 
 That's it — the placeholder site is live. Every time code is pushed to `main`,
 Vercel redeploys automatically.
@@ -50,10 +50,15 @@ Vercel redeploys automatically.
 
 In the Vercel project: **Settings → Environment Variables**, add:
 
-- `NEXT_PUBLIC_SITE_URL` = your Vercel URL (e.g. `https://rankforge-xxxx.vercel.app`)
+- `NEXT_PUBLIC_SITE_URL` = your site URL (e.g. `https://rankedfrogs-xxxx.vercel.app`
+  at first, then `https://rankedfrogs.com` once the domain is connected)
 
-Redeploy (Vercel → Deployments → ⋯ → Redeploy) so it takes effect. Later, if you
-buy a custom domain, add it under **Settings → Domains** and update this value.
+**Connecting rankedfrogs.com:** in Vercel → **Settings → Domains**, add
+`rankedfrogs.com` (and `www.rankedfrogs.com`), then follow Vercel's instructions to
+point your domain registrar's DNS at Vercel (usually an A record and/or a CNAME).
+Once it's live, set `NEXT_PUBLIC_SITE_URL=https://rankedfrogs.com` and redeploy
+(Vercel → Deployments → ⋯ → Redeploy) so canonical URLs, the sitemap, and social
+share links all use the real domain.
 
 ---
 
@@ -132,7 +137,7 @@ here later so the CI secret-leak check runs against real values.)
 
 ### 🟡 Email (Phase 2)
 - `RESEND_API_KEY` 🔒 from resend.com. Until you verify a domain, leave
-  `EMAIL_FROM` as `RankForge <onboarding@resend.dev>`. To use your own domain,
+  `EMAIL_FROM` as `RankedFrogs <onboarding@resend.dev>`. To use your own domain,
   verify it in Resend (add the DNS records they give you) and update `EMAIL_FROM`.
 
 ### 🟡 Admin account (Phase 2)

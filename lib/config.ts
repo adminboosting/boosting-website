@@ -6,9 +6,9 @@
  * `site_settings` (which overrides this value for runtime display once the DB is
  * wired), and (3) the logo asset in /public. Nothing else references the name.
  */
-export const BRAND_NAME = "RankForge";
+export const BRAND_NAME = "RankedFrogs";
 
-export const BRAND_TAGLINE = "Climb faster with vetted pros.";
+export const BRAND_TAGLINE = "Leap up the ranks with vetted pros.";
 
 /** USD, integer cents everywhere. Display formatting happens only at the UI edge. */
 export const DEFAULT_CURRENCY = "USD" as const;
