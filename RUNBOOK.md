@@ -5,10 +5,11 @@ you (the owner) need to take — creating accounts, getting keys, pasting them i
 dashboards — so you can run the site without reading code. Everything here uses
 **free** services.
 
-> **Where you are now (Phase 0):** the app is a deployable placeholder home page.
-> You can put it live on the internet today (Steps 1–3). The database, calculator,
-> payments, etc. arrive in later phases; their setup steps are marked
-> **(needed from Phase N)** so you can do them when they matter.
+> **Where you are now (Phase 3):** the site has the public calculator, sign-in,
+> checkout → orders, the credential vault, order chat, and the booster + admin
+> desks. Steps 1–7 put it live; the newest manual step is the **Realtime check**
+> below (do it once after applying the database migrations). Steps for features
+> that haven't arrived yet are marked **(needed from Phase N)**.
 
 Legend: 🟢 = do this now · 🟡 = do this when the phase arrives · 🔒 = a secret,
 never share or commit it.
@@ -154,6 +155,28 @@ here later so the CI secret-leak check runs against real values.)
 - Set `CRON_SECRET` 🔒 to any long random string in Vercel. Configure **Vercel Cron**
   to call `/api/cron/purge-credentials` daily with an `Authorization: Bearer <CRON_SECRET>`
   header. (The pricing-insights cron is only needed once AI is enabled.)
+
+### 🟡 Realtime chat (Phase 3) — one check after migrating
+
+Order chat updates live through Supabase **Realtime**. The migrations turn it on
+(file `0007_realtime_reviews.sql`), but hosted Supabase is the only place it can
+actually take effect — so after you run Step 5 (`pnpm db:migrate`) against your
+live project, verify it once:
+
+1. In the Supabase dashboard open **Database → Publications** and click
+   **`supabase_realtime`**. The table list must include **`order_messages`** and
+   **`order_progress`**. If either is missing, re-run `pnpm db:migrate`, or just
+   flip those two tables on right there in the dashboard.
+2. **Eyeball a live message:** open the same order's page in two browser windows
+   (for example: your admin view of the order in one, the customer view in the
+   other — or one normal and one private window signed into two accounts). Send
+   a chat message in one window. It should appear in the other **within a
+   second or two, without refreshing**.
+
+If a message only shows up after a refresh or ~15 seconds, the site is quietly
+using its built-in fallback (it re-checks for messages every 15 seconds), and
+the page shows a small "Live updates unavailable" note. Nothing is broken or
+lost — chat still works — but go back to check 1, because Realtime isn't on.
 
 ### 🟡 Sentry error alerts (optional, anytime)
 - Create a free Sentry project, copy the DSN into `NEXT_PUBLIC_SENTRY_DSN`. That's

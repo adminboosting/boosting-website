@@ -312,6 +312,20 @@
   }
 }
 
+@keyframes status-pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.6;
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* ---------------------------------------------------------------------------
  * Motion slots (spec D3). Each animatable spot's DEFAULT motion is one class
  * here, named to its slot ID in lib/motion.ts, so Claude Design output can
@@ -329,6 +343,14 @@
   .motion-total-pop {
     animation: total-pop var(--duration-base) var(--ease-standard);
     transform-origin: right center;
+  }
+  /* order.status-change — badge remounts (keyed by status) and pops in. */
+  .motion-status-change {
+    animation: status-pop var(--duration-base) var(--ease-out) both;
+  }
+  /* chat.message-enter — a new message rises into the thread. */
+  .motion-message-enter {
+    animation: lily-rise var(--duration-base) var(--ease-out) both;
   }
   /* section.reveal — rises as it scrolls into view, where supported. */
   @supports (animation-timeline: view()) {

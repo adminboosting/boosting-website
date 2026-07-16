@@ -2,22 +2,27 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import { buttonVariants } from "@/components/ui/button";
-import { getSessionUser } from "@/lib/auth/session";
+import { accountNavLinks } from "@/lib/auth/nav";
+import { getSessionProfile } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 /**
- * The header's right slot. Async server component: reads the session once per
- * request and renders either the marketing CTA pair (signed out — also the
- * zero-backend deploy, where getSessionUser() short-circuits to null) or the
+ * The header's right slot. Async server component: reads the session profile
+ * once per request and renders either the marketing CTA pair (signed out —
+ * also the zero-backend deploy, where getSessionProfile() short-circuits to
+ * null, and the sub-second window before the profile trigger lands) or the
  * signed-in account controls.
  *
  * The slot is always visible below md (there is no mobile menu), so it stays
- * compact — two small controls max in either state.
+ * compact — at most three small controls: "My orders", one role link
+ * (Booster desk / Admin, ghost so it never competes with the primary), and
+ * the sign-out icon. Role links come from accountNavLinks(); they are
+ * navigation sugar only — the target layouts re-verify the role server-side.
  */
 export async function AccountMenu() {
-  const user = await getSessionUser();
+  const session = await getSessionProfile();
 
-  if (!user) {
+  if (!session) {
     return (
       <div className="flex items-center gap-2">
         <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
@@ -30,11 +35,24 @@ export async function AccountMenu() {
     );
   }
 
+  const [primary, ...roleLinks] = accountNavLinks(session.profile.role);
+
   return (
     <div className="flex items-center gap-2">
-      <Link href="/account" className={cn(buttonVariants({ size: "sm" }))}>
-        My orders
-      </Link>
+      {primary ? (
+        <Link href={primary.href} className={cn(buttonVariants({ size: "sm" }))}>
+          {primary.label}
+        </Link>
+      ) : null}
+      {roleLinks.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          {link.label}
+        </Link>
+      ))}
       {/* signOut re-verifies the session server-side; this form is just the trigger. */}
       <form action={signOut}>
         <button

@@ -98,3 +98,17 @@ export async function requireAdmin(): Promise<SessionContext> {
   if (session.profile.role !== "admin") redirect("/");
   return session;
 }
+
+/**
+ * Require a signed-in booster. Admins pass too, so the owner can inspect the
+ * booster surface. Signed out → /login; any other role → home (the booster
+ * area is unadvertised — same posture as requireAdmin). Layouts, pages, and
+ * server actions under app/(booster) call this independently; RLS
+ * (can_access_order) remains the final layer underneath.
+ */
+export async function requireBooster(): Promise<SessionContext> {
+  const session = await getSessionProfile();
+  if (!session) redirect("/login");
+  if (session.profile.role !== "booster" && session.profile.role !== "admin") redirect("/");
+  return session;
+}

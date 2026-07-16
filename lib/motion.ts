@@ -121,12 +121,21 @@ export const MOTION_SLOTS: MotionSlot[] = [
   },
   {
     id: "order.status-change",
-    location: "Phase 2 order surfaces (not built yet)",
-    intent: "An order's status badge transitions when it advances.",
-    target: "Order status badge (future)",
-    kind: "stub",
-    impl: "Reserved — no surface exists yet. Wire when Phase 2 lands.",
-    reducedMotion: "Must define a no-op fallback when implemented.",
+    location: "components/orders/status-badge.tsx (shared badge, animateOnChange)",
+    intent: "An order's status badge pops confidently when it advances.",
+    target: "OrderStatusBadge span, keyed by status so it replays on change",
+    kind: "css-class",
+    impl: ".motion-status-change (globals.css) → keyframe status-pop",
+    reducedMotion: "Collapses to end state (new tone shown, no pop) via the global rule.",
+  },
+  {
+    id: "chat.message-enter",
+    location: "components/chat/order-chat.tsx — each message row",
+    intent: "A newly arrived chat message rises gently into the thread.",
+    target: "Each message <li>, keyed by message id",
+    kind: "css-class",
+    impl: ".motion-message-enter (globals.css) → keyframe lily-rise",
+    reducedMotion: "Collapses to end state (opacity-only, effectively instant) via the global rule.",
   },
 ];
 
@@ -140,4 +149,6 @@ export const motion = {
   calculatorLineEnter: "motion-line-enter",
   calculatorTotalChange: "motion-total-pop",
   loadingSkeleton: "animate-pulse",
+  statusChange: "motion-status-change",
+  messageEnter: "motion-message-enter",
 } as const;

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Coins } from "lucide-react";
+import { Coins, MessageCircle } from "lucide-react";
+import { OrderStatusBadge } from "@/components/orders/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getSessionProfile } from "@/lib/auth/session";
 import { getServiceByType } from "@/lib/catalog/content";
@@ -30,40 +31,15 @@ interface AccountOrderRow {
 }
 
 /**
- * Badge tone per order status. Mirrors app/(shop)/orders/[id]/page.tsx (which
- * also owns the `order.status-change` motion slot) — extract both copies to
- * components/orders/status-badge.tsx once a third surface needs it.
+ * One message row of the unread-count query. The embedded `message_reads` is
+ * RLS-filtered to the CALLER's receipts only (`message_reads_own`), so an
+ * empty array means "this viewer hasn't read it" — nobody's read state leaks.
  */
-const STATUS_META: Record<OrderStatus, { label: string; className: string }> = {
-  pending_payment: {
-    label: "Awaiting payment",
-    className: "border-warning/40 bg-warning/10 text-warning",
-  },
-  paid: { label: "Paid", className: "border-primary/40 bg-primary/10 text-primary" },
-  assigned: { label: "Booster assigned", className: "border-accent/40 bg-accent/10 text-accent" },
-  in_progress: { label: "In progress", className: "border-primary/40 bg-primary/10 text-primary" },
-  paused: { label: "Paused", className: "border-border bg-muted/40 text-muted-foreground" },
-  completed: { label: "Completed", className: "border-success/40 bg-success/10 text-success" },
-  cancelled: {
-    label: "Cancelled",
-    className: "border-destructive/40 bg-destructive/10 text-destructive",
-  },
-  refunded: { label: "Refunded", className: "border-border bg-muted/40 text-muted-foreground" },
-};
-
-function OrderStatusBadge({ status }: { status: OrderStatus }) {
-  const meta = STATUS_META[status];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
-        meta.className,
-      )}
-    >
-      <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-      {meta.label}
-    </span>
-  );
+interface UnreadCandidateRow {
+  id: string;
+  order_id: string;
+  sender_id: string | null;
+  message_reads: { message_id: string }[];
 }
 
 /** Server-rendered dates; en-US to match the money formatter. */
@@ -88,6 +64,26 @@ export default async function AccountPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
   const orders = (data ?? []) as AccountOrderRow[];
+
+  // Unread messages per order: one grouped query — participant-visible
+  // messages with the caller's own receipts embedded (RLS scopes both hops).
+  // A message counts as unread when someone else (or the system, sender_id
+  // null) sent it and no own receipt exists; the JS filter keeps null senders
+  // in, which a PostgREST `neq` would silently drop.
+  const unreadByOrder = new Map<string, number>();
+  if (orders.length > 0) {
+    const { data: messageData } = await supabase
+      .from("order_messages")
+      .select("id, order_id, sender_id, message_reads(message_id)")
+      .in(
+        "order_id",
+        orders.map((order) => order.id),
+      );
+    for (const row of (messageData ?? []) as UnreadCandidateRow[]) {
+      if (row.sender_id === user.id || row.message_reads.length > 0) continue;
+      unreadByOrder.set(row.order_id, (unreadByOrder.get(row.order_id) ?? 0) + 1);
+    }
+  }
 
   const games = await getGames();
   const gameName = (slug: string) => games.find((g) => g.slug === slug)?.name ?? slug;
@@ -123,6 +119,7 @@ export default async function AccountPage() {
         <ul className="mt-8 space-y-3">
           {orders.map((order) => {
             const service = getServiceByType(order.service_type);
+            const unread = unreadByOrder.get(order.id) ?? 0;
             return (
               <li key={order.id}>
                 <Link
@@ -139,6 +136,16 @@ export default async function AccountPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {unread > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        <MessageCircle aria-hidden="true" className="size-3" />
+                        {unread} unread
+                        <span className="sr-only">
+                          {" "}
+                          message{unread === 1 ? "" : "s"} on this order
+                        </span>
+                      </span>
+                    )}
                     <OrderStatusBadge status={order.status} />
                     <span className="font-semibold tabular-nums">
                       {formatUsdFromCents(order.total_cents)}

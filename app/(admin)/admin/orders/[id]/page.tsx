@@ -2,9 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { cancelOrder, recordManualPayment } from "@/app/(admin)/admin/orders/actions";
+import {
+  assignBoosterFromForm,
+  cancelOrder,
+  markAdminMessagesRead,
+  recordManualPayment,
+  sendAdminOrderMessage,
+  unassignBooster,
+} from "@/app/(admin)/admin/orders/actions";
 import { AdminActionButton } from "@/components/admin/admin-action-button";
 import { ORDER_STATUS_META, OrderStatusBadge } from "@/components/admin/order-status-badge";
+import { OrderChat } from "@/components/chat/order-chat";
+import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/auth/session";
 import { getServiceByType } from "@/lib/catalog/content";
 import { getGames } from "@/lib/catalog/source";
@@ -12,11 +21,14 @@ import type { OrderMode, ServiceType } from "@/lib/catalog/types";
 import { formatUsdFromCents } from "@/lib/money";
 import { canTransition, type OrderStatus } from "@/lib/orders/transitions";
 import type { QuoteConfig } from "@/lib/pricing/types";
+import type { ChatMessageRow } from "@/lib/realtime/order-chat-channel";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isServiceRoleConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Admin — order",
-  description: "Order detail: payments, progress history, and manual actions.",
+  description: "Order detail: payments, assignment, chat, and manual actions.",
   robots: { index: false },
 };
 
@@ -60,6 +72,24 @@ interface ProgressRow {
   created_at: string;
 }
 
+/** order_assignments rows with the booster via the booster_id FK embed. */
+interface AssignmentRow {
+  id: string;
+  booster_id: string;
+  assigned_at: string;
+  unassigned_at: string | null;
+  is_active: boolean;
+  profiles: { email: string | null; display_name: string | null } | null;
+}
+
+/** booster_profiles rows for the assign select, with the 1:1 profiles embed. */
+interface BoosterOptionRow {
+  id: string;
+  display_name: string | null;
+  is_accepting: boolean;
+  profiles: { email: string | null; display_name: string | null; role: string } | null;
+}
+
 const PROVIDER_LABELS: Record<PaymentProvider, string> = {
   manual: "Manual / crypto",
   nowpayments: "NOWPayments",
@@ -74,23 +104,43 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   refunded: "Refunded",
 };
 
+/**
+ * Statuses that may take a booster — mirrors ASSIGNABLE_STATUSES in actions.ts
+ * (a "use server" module can only export async functions, so the constant
+ * can't be shared). The action re-validates regardless; this only gates UI.
+ */
+const ASSIGNABLE_STATUSES: readonly OrderStatus[] = ["paid", "assigned", "in_progress", "paused"];
+
 /** Server-rendered dates; en-US to match the money formatter. */
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
+function boosterLabel(assignment: AssignmentRow): string {
+  return (
+    assignment.profiles?.display_name ??
+    assignment.profiles?.email ??
+    `#${assignment.booster_id.slice(0, 8)}`
+  );
+}
+
 export default async function AdminOrderDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ assign_error?: string }>;
 }) {
   const { id } = await params;
+  const { assign_error: assignErrorRaw } = await searchParams;
   // Independent identity check on top of the layout's — layers hold alone.
-  await requireAdmin();
+  // The session also feeds the chat (currentUserId marks own bubbles).
+  const session = await requireAdmin();
 
   // User-scoped client: admins pass RLS on orders, payments, order_progress,
-  // and profiles. A malformed id and a missing row both land on notFound().
+  // order_assignments, order_messages, and profiles. A malformed id and a
+  // missing row both land on notFound().
   const supabase = await createClient();
   const { data } = await supabase
     .from("orders")
@@ -102,22 +152,63 @@ export default async function AdminOrderDetailPage({
   const order = data as unknown as AdminOrderDetailRow | null;
   if (!order) notFound();
 
-  const [paymentsResult, progressResult, games] = await Promise.all([
-    supabase
-      .from("payments")
-      .select("id, provider, provider_ref, amount_cents, status, created_at")
-      .eq("order_id", order.id)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("order_progress")
-      .select("id, status_from, status_to, note, created_at")
-      .eq("order_id", order.id)
-      .order("created_at", { ascending: true }),
-    getGames(),
-  ]);
+  const [paymentsResult, progressResult, assignmentsResult, messagesResult, games] =
+    await Promise.all([
+      supabase
+        .from("payments")
+        .select("id, provider, provider_ref, amount_cents, status, created_at")
+        .eq("order_id", order.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("order_progress")
+        .select("id, status_from, status_to, note, created_at")
+        .eq("order_id", order.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("order_assignments")
+        .select(
+          "id, booster_id, assigned_at, unassigned_at, is_active, profiles (email, display_name)",
+        )
+        .eq("order_id", order.id)
+        .order("assigned_at", { ascending: true }),
+      // Last 100 messages, ascending for the chat (fetch newest-first, reverse).
+      supabase
+        .from("order_messages")
+        .select("id, order_id, sender_id, body, is_system, created_at")
+        .eq("order_id", order.id)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      getGames(),
+    ]);
   const payments = (paymentsResult.data ?? []) as PaymentRow[];
   const progress = (progressResult.data ?? []) as ProgressRow[];
+  const assignments = (assignmentsResult.data ?? []) as unknown as AssignmentRow[];
+  const messages = ((messagesResult.data ?? []) as ChatMessageRow[]).slice().reverse();
   const gameName = games.find((g) => g.slug === order.game_slug)?.name ?? order.game_slug;
+
+  const activeAssignment = assignments.find((a) => a.is_active) ?? null;
+  const pastAssignments = assignments.filter((a) => !a.is_active);
+  const serviceRoleReady = isServiceRoleConfigured();
+
+  // Accepting boosters for the assign select — service role, because listing
+  // OTHER users' profiles/booster rows isn't a participant read (and the
+  // assign write is service-role anyway; see the grant trap in actions.ts).
+  let boosterOptions: BoosterOptionRow[] = [];
+  if (serviceRoleReady && !activeAssignment && ASSIGNABLE_STATUSES.includes(order.status)) {
+    const admin = createAdminClient();
+    const { data: boosterData } = await admin
+      .from("booster_profiles")
+      .select("id, display_name, is_accepting, profiles (email, display_name, role)")
+      .eq("is_accepting", true);
+    boosterOptions = ((boosterData ?? []) as unknown as BoosterOptionRow[]).filter(
+      (b) => b.profiles?.role === "booster",
+    );
+  }
+
+  const assignError =
+    typeof assignErrorRaw === "string" && assignErrorRaw.length > 0
+      ? assignErrorRaw.slice(0, 300)
+      : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -188,6 +279,92 @@ export default async function AdminOrderDetailPage({
             {JSON.stringify(order.config, null, 2)}
           </pre>
         </details>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card/40 p-5">
+        <h2 className="font-semibold">Assignment</h2>
+
+        {assignError && (
+          <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive-foreground">
+            {assignError}
+          </p>
+        )}
+
+        {activeAssignment ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm">
+              <p className="font-medium">{boosterLabel(activeAssignment)}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Assigned {DATE_TIME_FORMAT.format(new Date(activeAssignment.assigned_at))}
+              </p>
+            </div>
+            {/* Release keeps the order at its current status (no backward
+                walk); re-assigning restores coverage. */}
+            <AdminActionButton
+              action={unassignBooster.bind(null, order.id)}
+              label="Unassign booster"
+              variant="destructive"
+            />
+          </div>
+        ) : !ASSIGNABLE_STATUSES.includes(order.status) ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {order.status === "pending_payment"
+              ? "Confirm the payment first — boosters join once the order is paid."
+              : "This order is closed — no booster needed."}
+          </p>
+        ) : !serviceRoleReady ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Booster assignment needs the service-role key on this deployment.
+          </p>
+        ) : boosterOptions.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            No accepting boosters yet — promote one under Boosters.
+          </p>
+        ) : (
+          <form
+            action={assignBoosterFromForm.bind(null, order.id)}
+            className="mt-3 flex flex-wrap items-center gap-2"
+          >
+            <select
+              name="boosterId"
+              required
+              defaultValue=""
+              aria-label="Booster"
+              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="" disabled>
+                Select a booster…
+              </option>
+              {boosterOptions.map((booster) => (
+                <option key={booster.id} value={booster.id}>
+                  {booster.display_name ??
+                    booster.profiles?.display_name ??
+                    booster.profiles?.email ??
+                    booster.id.slice(0, 8)}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" size="sm">
+              Assign booster
+            </Button>
+          </form>
+        )}
+
+        {pastAssignments.length > 0 && (
+          <ul className="mt-4 space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+            {pastAssignments.map((assignment) => (
+              <li key={assignment.id} className="flex flex-wrap justify-between gap-2">
+                <span>{boosterLabel(assignment)}</span>
+                <span>
+                  {DATE_TIME_FORMAT.format(new Date(assignment.assigned_at))} —{" "}
+                  {assignment.unassigned_at
+                    ? DATE_TIME_FORMAT.format(new Date(assignment.unassigned_at))
+                    : "released"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="mt-6">
@@ -270,6 +447,20 @@ export default async function AdminOrderDetailPage({
             ))}
           </ol>
         )}
+      </section>
+
+      {/* Support happens in-context: admins are chat participants via
+          can_access_order (is_admin). The send action inserts USER-scoped so
+          order_messages_insert_participants stays the enforcement. Composer
+          stays open on terminal orders — refund questions land here. */}
+      <section className="mt-6">
+        <OrderChat
+          orderId={order.id}
+          currentUserId={session.user.id}
+          initialMessages={messages}
+          sendAction={sendAdminOrderMessage.bind(null, order.id)}
+          markReadAction={markAdminMessagesRead.bind(null, order.id)}
+        />
       </section>
 
       {canTransition(order.status, "cancelled") && (

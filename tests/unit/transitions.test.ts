@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOOSTER_ALLOWED_TARGETS,
   ORDER_STATUS_TRANSITIONS,
   OrderStatusError,
   assertTransition,
+  canBoosterAdvance,
   canTransition,
   type OrderStatus,
 } from "@/lib/orders/transitions";
@@ -82,5 +84,61 @@ describe("assertTransition", () => {
     expect(err.name).toBe("OrderStatusError");
     expect(err.message).toContain('"completed"');
     expect(err.message).toContain('"paid"');
+  });
+});
+
+describe("BOOSTER_ALLOWED_TARGETS / canBoosterAdvance", () => {
+  const BOOSTER_FROMS = Object.keys(BOOSTER_ALLOWED_TARGETS) as Array<
+    keyof typeof BOOSTER_ALLOWED_TARGETS
+  >;
+
+  it("is a strict subset of ORDER_STATUS_TRANSITIONS (subset property)", () => {
+    const boosterPairs = BOOSTER_FROMS.flatMap((from) =>
+      BOOSTER_ALLOWED_TARGETS[from].map((to) => `${from}->${to}`),
+    );
+    const seededPairs = new Set(
+      ALL_STATUSES.flatMap((from) => ORDER_STATUS_TRANSITIONS[from].map((to) => `${from}->${to}`)),
+    );
+    for (const pair of boosterPairs) {
+      expect(seededPairs.has(pair), `${pair} must be a seeded transition`).toBe(true);
+    }
+    // STRICT subset: the booster surface can do less than the full walk.
+    expect(boosterPairs.length).toBeLessThan(seededPairs.size);
+  });
+
+  it("contains exactly the booster-operable pairs", () => {
+    expect(BOOSTER_ALLOWED_TARGETS).toEqual({
+      assigned: ["in_progress"],
+      in_progress: ["paused", "completed"],
+      paused: ["in_progress"],
+    });
+  });
+
+  it("never reaches cancelled, refunded, or paid from any status", () => {
+    for (const from of ALL_STATUSES) {
+      for (const to of ["cancelled", "refunded", "paid"] as OrderStatus[]) {
+        expect(canBoosterAdvance(from, to), `${from} -> ${to}`).toBe(false);
+      }
+    }
+  });
+
+  it("agrees with membership over the full status × status matrix", () => {
+    const map = BOOSTER_ALLOWED_TARGETS as Partial<Record<OrderStatus, readonly OrderStatus[]>>;
+    for (const from of ALL_STATUSES) {
+      for (const to of ALL_STATUSES) {
+        const expected = map[from]?.includes(to) ?? false;
+        expect(canBoosterAdvance(from, to), `${from} -> ${to}`).toBe(expected);
+      }
+    }
+  });
+
+  it("implies canTransition for every allowed pair (never wider than the walk)", () => {
+    for (const from of ALL_STATUSES) {
+      for (const to of ALL_STATUSES) {
+        if (canBoosterAdvance(from, to)) {
+          expect(canTransition(from, to), `${from} -> ${to}`).toBe(true);
+        }
+      }
+    }
   });
 });

@@ -84,11 +84,13 @@ Checks run in **two independent places** so a green deploy is never an accident:
 ## Repository layout
 
 ```
-app/            Next.js App Router (marketing, auth, dashboard, booster, admin, api)
-components/     UI (shadcn), brand, calculator, chat, trust, admin
-lib/            config, supabase clients, pricing engine, vault, payments, ai, schemas
-emails/         react-email templates
-supabase/       migrations/, seed.sql, config.toml
+app/            Next.js App Router: (marketing), (auth), (shop) account/orders/checkout,
+                (booster) booster desk, (admin) admin panel, api/
+components/     ui (shadcn), brand, site, calculator, checkout, orders, chat, booster,
+                admin, auth, legal
+lib/            config, supabase clients, auth/session + nav, pricing engine, orders,
+                realtime, credentials vault, schemas, motion
+supabase/       migrations/ (0001–0007), seed.sql (generated), config.toml
 scripts/        generate-key, check-client-secrets, migrate + seed runner (scripts/lib)
 tests/          unit/, integration/, db/ (PGlite-backed RLS + migration tests)
 ```
@@ -98,9 +100,11 @@ tests/          unit/, integration/, db/ (PGlite-backed RLS + migration tests)
 Work proceeds phase by phase; `main` stays deployable at every gate.
 
 - **Phase 0 — Foundation** ✅ scaffold, toolchain, CI, deployable placeholder home
-- **Phase 1 — Data + pricing + public calculator** (server-authoritative pricing, SEO)
-- **Phase 2 — Auth + orders + payments + credential vault**
-- **Phase 3 — Customer / booster / admin surfaces + realtime chat**
+- **Phase 1 — Data + pricing + public calculator** ✅ server-authoritative pricing, SEO
+- **Phase 2 — Auth + orders + payments + credential vault** ✅
+- **Phase 3 — Customer / booster / admin surfaces + realtime chat** ✅ order chat
+  (Supabase Realtime with polling fallback), progress timeline, moderated reviews,
+  booster desk, admin assignment/boosters/coupons/settings
 - **Phase 4 — Loyalty, referrals, trust, deterministic "AI" fallbacks, polish**
 
 ## Notes for the owner

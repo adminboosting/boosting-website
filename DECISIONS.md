@@ -411,3 +411,59 @@ decisions worth logging here:
 - **Regression check.** Keying the total `<span>` by `totalCents` (for the pop) keeps
   the aria-live update working — verified the total recomputes on interaction
   ($8.00 → $211.85) with no console errors.
+
+---
+
+## Phase 3 — Customer / booster / admin surfaces + realtime chat
+
+(Phase 2 — auth, checkout → orders, manual payments, credential vault — shipped in
+commit `e79ac0a` between Phase D and this entry; its choices live in that commit's
+code comments and RUNBOOK additions rather than a log section here.)
+
+- **Realtime transport = Supabase `postgres_changes` on `order_messages` (and
+  `order_progress`).** Chosen over *broadcast* because change payloads are
+  RLS-filtered per subscriber for free — the existing `can_access_order()`
+  policies are the delivery gate, no fan-out or authorization code to write —
+  and over *polling* because the free-tier limits (200 concurrent connections,
+  2M messages/month) comfortably fit the MVP: one channel per mounted order
+  page, unsubscribed on unmount, no presence, no global subscriptions.
+  Realtime prerequisites did not exist before this phase; migration
+  `0007_realtime_reviews.sql` adds both tables to the `supabase_realtime`
+  publication inside a guard that checks `pg_publication` first, so it applies
+  on hosted Supabase and no-ops cleanly on PGlite. `message_reads` is
+  deliberately NOT published — receipts are self-scoped, refetch-on-focus is
+  enough.
+- **Chat degrades gracefully when Realtime is absent.** The chat component
+  watches the channel status; anything other than `SUBSCRIBED` flips it to a
+  15s polling refetch with a visible "Live updates unavailable" note (plus a
+  dev-only `console.warn`). So chat works — just slower — before 0007 runs on
+  the live project, and a booster whose assignment is revoked mid-session gets
+  a silently-empty channel instead of a crash. The owner-facing verification
+  step (dashboard → Database → Publications) is in RUNBOOK.
+- **Reviews are moderated — authors cannot self-publish.** 0007 recreates the
+  reviews INSERT/UPDATE policies with `(is_published = false OR is_admin())`
+  in WITH CHECK, and the server action independently hardcodes
+  `is_published: false`. Only admins publish; anon readers only ever see
+  published rows.
+- **Grant-vs-policy traps kept, on purpose (regression-pinned by DB tests).**
+  `order_assignments` and `site_settings` both carry admin FOR-ALL *policies*
+  but SELECT-only *grants* for `authenticated` — so assignment and settings
+  writes only work through the **service role**, even for admins. Do not "fix"
+  this by widening grants; the asymmetry is the design. Conversely, two
+  surfaces intentionally exercise user-scoped RLS end to end: **coupon CRUD**
+  (full DML grants + `coupons_admin_all`) and **booster status walks**
+  (`orders_update_owner_or_staff` + `order_progress_insert_staff`).
+- **Booster transitions are an app-side strict subset.** RLS alone would let
+  any participant update `orders.status`, so the state machine stays in code:
+  `BOOSTER_ALLOWED_TARGETS` in `lib/orders/transitions.ts` (assigned→in_progress,
+  in_progress→paused/completed, paused→in_progress — never cancel/refund) and
+  status-predicated updates guard every booster action.
+- **Header account menu grew role links, not a menu system.** `lib/auth/nav.ts`
+  is a pure role→links map (fast-suite tested); boosters/admins get exactly one
+  extra ghost link (Booster desk / Admin). The links are navigation sugar —
+  the target layouts re-verify the role and RLS is the final gate. The
+  `AppRole` import is `import type` so `server-only` never leaks into the
+  module graph.
+- **Status badge folded to one home.** `components/orders/status-badge.tsx` now
+  owns `ORDER_STATUS_META`; the admin copy is a re-export shim and the shop
+  pages import the shared badge — the three duplicated copies are gone.

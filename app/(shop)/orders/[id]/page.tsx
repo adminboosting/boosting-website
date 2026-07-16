@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Clock, ShieldCheck } from "lucide-react";
+import { ChevronLeft, Clock, ShieldCheck, Star } from "lucide-react";
+import { OrderChat } from "@/components/chat/order-chat";
 import { CredentialForm } from "@/components/orders/credential-form";
+import { ProgressTimeline, type OrderProgressRow } from "@/components/orders/progress-timeline";
+import { ReviewForm } from "@/components/orders/review-form";
+import { OrderStatusBadge } from "@/components/orders/status-badge";
 import { requireUser } from "@/lib/auth/session";
 import { getServiceByType } from "@/lib/catalog/content";
 import { getGame, getPlacementPrices, getRanks, getRegions } from "@/lib/catalog/source";
@@ -16,10 +20,12 @@ import type {
   QuoteConfig,
   RankBoostConfig,
 } from "@/lib/pricing/types";
+import type { ChatMessageRow } from "@/lib/realtime/order-chat-channel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isServiceRoleConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { markMessagesRead, sendOrderMessage } from "./actions";
 
 export const metadata: Metadata = {
   title: "Order details",
@@ -72,50 +78,17 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   refunded: "Refunded",
 };
 
-/**
- * Badge tone per order status. Mirrored in app/(shop)/account/page.tsx —
- * extract to components/orders/status-badge.tsx once a third surface needs it.
- * Semantic tokens only (globals.css), no raw color values.
- */
-const STATUS_META: Record<OrderStatus, { label: string; className: string }> = {
-  pending_payment: {
-    label: "Awaiting payment",
-    className: "border-warning/40 bg-warning/10 text-warning",
-  },
-  paid: { label: "Paid", className: "border-primary/40 bg-primary/10 text-primary" },
-  assigned: { label: "Booster assigned", className: "border-accent/40 bg-accent/10 text-accent" },
-  in_progress: { label: "In progress", className: "border-primary/40 bg-primary/10 text-primary" },
-  paused: { label: "Paused", className: "border-border bg-muted/40 text-muted-foreground" },
-  completed: { label: "Completed", className: "border-success/40 bg-success/10 text-success" },
-  cancelled: {
-    label: "Cancelled",
-    className: "border-destructive/40 bg-destructive/10 text-destructive",
-  },
-  refunded: { label: "Refunded", className: "border-border bg-muted/40 text-muted-foreground" },
-};
-
-/**
- * The `order.status-change` motion slot (lib/motion.ts). `motion-status-change`
- * is the single swap point for Claude Design output — a no-op until globals.css
- * defines it, and the global reduced-motion rule collapses whatever it becomes.
- * The span is keyed by status so a client-side status advance remounts the
- * badge and replays the slot's animation (same trick as calculator.total-change).
- */
-function OrderStatusBadge({ status }: { status: OrderStatus }) {
-  const meta = STATUS_META[status];
-  return (
-    <span
-      key={status}
-      className={cn(
-        "motion-status-change inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
-        meta.className,
-      )}
-    >
-      <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-      {meta.label}
-    </span>
-  );
+/** The reviews columns this page reads, as PostgREST returns them (snake_case). */
+interface ReviewRow {
+  id: string;
+  rating: number;
+  body: string | null;
+  is_published: boolean;
+  created_at: string;
 }
+
+/** Terminal orders keep chat history readable but need no more coordination. */
+const CHAT_READONLY_STATUSES: readonly OrderStatus[] = ["completed", "refunded"];
 
 /** Piloted orders accept credentials only while there is work left to start/finish. */
 const CREDENTIAL_WINDOW_STATUSES: readonly OrderStatus[] = [
@@ -246,7 +219,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const order = data as OrderRow | null;
   if (!order) notFound();
 
-  const [rows, paymentsResult] = await Promise.all([
+  const [rows, paymentsResult, progressResult, messagesResult, reviewResult] = await Promise.all([
     buildSummaryRows(order),
     // RLS `payments_select_owner_or_admin` lets participants read payment rows.
     supabase
@@ -254,8 +227,31 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       .select("id, provider, amount_cents, status, created_at")
       .eq("order_id", order.id)
       .order("created_at", { ascending: true }),
+    // RLS `order_progress_select_participants`; ProgressTimeline expects ascending.
+    supabase
+      .from("order_progress")
+      .select("id, status_from, status_to, note, created_at")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true }),
+    // RLS `order_messages_select_participants`. Newest-first + limit gets the
+    // LAST 100; reversed below to the ascending order the chat renders.
+    supabase
+      .from("order_messages")
+      .select("id, order_id, sender_id, body, is_system, created_at")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    // The author sees their own unpublished review (reviews_select_published).
+    supabase
+      .from("reviews")
+      .select("id, rating, body, is_published, created_at")
+      .eq("order_id", order.id)
+      .maybeSingle(),
   ]);
   const payments = (paymentsResult.data ?? []) as PaymentRow[];
+  const progress = (progressResult.data ?? []) as OrderProgressRow[];
+  const messages = ((messagesResult.data ?? []) as ChatMessageRow[]).reverse();
+  const review = reviewResult.data as ReviewRow | null;
 
   // Credential intake is owner-only UI; storeOrderCredentials re-verifies
   // ownership + piloted + status server-side regardless of what renders here.
@@ -280,7 +276,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
       <header className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight">Order #{order.id.slice(0, 8)}</h1>
-        <OrderStatusBadge status={order.status} />
+        <OrderStatusBadge status={order.status} animateOnChange />
       </header>
 
       {order.status === "pending_payment" && (
@@ -349,6 +345,72 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </section>
+
+      <div className="mt-6">
+        <ProgressTimeline rows={progress} status={order.status} />
+      </div>
+
+      {/* Chat is hidden on cancelled orders; terminal-but-delivered statuses
+          keep the history visible with the composer hidden. sendOrderMessage /
+          markMessagesRead re-verify identity + participation server-side —
+          the binding is convenience, never authorization. */}
+      {order.status !== "cancelled" && (
+        <div className="mt-6">
+          <OrderChat
+            orderId={order.id}
+            currentUserId={user.id}
+            initialMessages={messages}
+            sendAction={sendOrderMessage.bind(null, order.id)}
+            markReadAction={markMessagesRead.bind(null, order.id)}
+            readOnly={CHAT_READONLY_STATUSES.includes(order.status)}
+          />
+        </div>
+      )}
+
+      {order.status === "completed" && (
+        <section className="mt-6">
+          <h2 className="text-lg font-semibold tracking-tight">Your review</h2>
+          {review ? (
+            <div className="mt-3 rounded-xl border border-border bg-card/40 p-5">
+              <div
+                className="flex items-center gap-1"
+                role="img"
+                aria-label={`Rated ${review.rating} out of 5 stars`}
+              >
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <Star
+                    key={value}
+                    aria-hidden="true"
+                    className={cn(
+                      "size-5",
+                      value <= review.rating ? "fill-accent text-accent" : "text-muted-foreground",
+                    )}
+                  />
+                ))}
+              </div>
+              {review.body && (
+                <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {review.body}
+                </p>
+              )}
+              {!review.is_published && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Pending moderation — your review appears publicly once our team approves it.
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Rate your boost — real reviews from real orders are the only ones we show.
+              </p>
+              <div className="mt-3">
+                <ReviewForm orderId={order.id} />
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {payments.length > 0 && (
         <section className="mt-6">

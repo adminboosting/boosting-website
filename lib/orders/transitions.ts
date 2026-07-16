@@ -61,3 +61,28 @@ export function assertTransition(from: OrderStatus, to: OrderStatus): void {
     );
   }
 }
+
+/**
+ * The booster-operable subset of the walk (Phase 3 booster surface): start,
+ * pause, resume, complete. Strictly narrower than ORDER_STATUS_TRANSITIONS —
+ * cancel/refund/payment moves never exist from the booster surface (admin
+ * only). A unit test pins the subset property so the two maps can't drift.
+ */
+export const BOOSTER_ALLOWED_TARGETS = {
+  assigned: ["in_progress"],
+  in_progress: ["paused", "completed"],
+  paused: ["in_progress"],
+} as const satisfies Partial<Record<OrderStatus, readonly OrderStatus[]>>;
+
+/**
+ * True when `from -> to` is both a seeded transition AND booster-operable.
+ * RLS lets an active booster update orders.status broadly
+ * (orders_update_owner_or_staff is column-unrestricted) — this gate plus a
+ * status-predicated UPDATE is the real state machine (risk #5).
+ */
+export function canBoosterAdvance(from: OrderStatus, to: OrderStatus): boolean {
+  const targets = (BOOSTER_ALLOWED_TARGETS as Partial<Record<OrderStatus, readonly OrderStatus[]>>)[
+    from
+  ];
+  return targets !== undefined && targets.includes(to) && canTransition(from, to);
+}
