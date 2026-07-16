@@ -12,6 +12,14 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    // Hermetic suite: always exercise the static file catalog, even when real
+    // Supabase env vars are present (e.g. during Vercel builds, where the
+    // Supabase integration injects them). The DB-backed source pulls in
+    // "server-only", which Next's bundler resolves but plain-Node Vitest can't.
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: "",
+      SUPABASE_SERVICE_ROLE_KEY: "",
+    },
     include: ["tests/**/*.{test,spec}.ts", "lib/**/*.{test,spec}.ts"],
     exclude: [...configDefaults.exclude, "tests/db/**"],
     coverage: {
