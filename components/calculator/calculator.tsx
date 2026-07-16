@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import type { GameSlug, PlacementBand, ServiceType } from "@/lib/catalog/types";
 import type { Quote } from "@/lib/pricing/types";
 import { formatUsdFromCents } from "@/lib/money";
 import { motion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+/** sessionStorage key the checkout page reads the pending QuoteRequest from. */
+export const CHECKOUT_INTENT_KEY = "rf.checkout.intent";
 
 export interface CalcRank {
   sortIndex: number;
@@ -54,6 +59,7 @@ const LP_BANDS: Array<{ value: 0 | 25 | 50 | 75; label: string }> = [
 ];
 
 export function Calculator({ catalog }: { catalog: CalculatorCatalog }) {
+  const router = useRouter();
   const purchasable = useMemo(() => catalog.ranks.filter((r) => r.isPurchasable), [catalog.ranks]);
   const firstIdx = purchasable[0]?.sortIndex ?? 0;
   const secondIdx = purchasable[1]?.sortIndex ?? firstIdx;
@@ -190,6 +196,15 @@ export function Calculator({ catalog }: { catalog: CalculatorCatalog }) {
     setModifierKeys((keys) =>
       keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key],
     );
+  }
+
+  // Hand the current QuoteRequest (the exact body POSTed to /api/quote — no
+  // prices) to the checkout page via sessionStorage, not URL params, so
+  // selections never leak into logs or shared links. Checkout re-quotes
+  // server-side; nothing stored here is trusted for money.
+  function handleCheckout() {
+    sessionStorage.setItem(CHECKOUT_INTENT_KEY, JSON.stringify(requestBody));
+    router.push("/checkout");
   }
 
   return (
@@ -365,6 +380,7 @@ export function Calculator({ catalog }: { catalog: CalculatorCatalog }) {
           loading={loading}
           couponCode={couponCode}
           onCouponChange={setCouponCode}
+          onCheckout={handleCheckout}
           volumeDiscounts={catalog.volumeDiscounts}
         />
       </div>
@@ -382,6 +398,7 @@ function PricePanel({
   loading,
   couponCode,
   onCouponChange,
+  onCheckout,
   volumeDiscounts,
 }: {
   quote: Quote | null;
@@ -389,6 +406,7 @@ function PricePanel({
   loading: boolean;
   couponCode: string;
   onCouponChange: (v: string) => void;
+  onCheckout: () => void;
   volumeDiscounts: { minCents: number; bp: number }[];
 }) {
   const subtotal = quote ? quote.baseCents + quote.modifiersCents : 0;
@@ -493,17 +511,14 @@ function PricePanel({
         />
       </div>
 
-      <button
+      <Button
         type="button"
-        disabled
-        title="Checkout opens in the next release"
-        className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground opacity-70"
+        disabled={!quote || !!error}
+        onClick={onCheckout}
+        className="mt-4 h-11 w-full rounded-lg text-sm font-semibold"
       >
         Continue to checkout
-      </button>
-      <p className="mt-2 text-center text-xs text-muted-foreground">
-        Sign-in &amp; secure checkout arrive in the next release.
-      </p>
+      </Button>
     </div>
   );
 }

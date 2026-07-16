@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { AccountMenu } from "@/components/site/account-menu";
 
 const NAV_LINKS = [
   { href: "/games", label: "Games" },
@@ -26,9 +25,7 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <Link href="/games" className={cn(buttonVariants({ size: "sm" }))}>
-          Get started
-        </Link>
+        <AccountMenu />
       </div>
     </header>
   );

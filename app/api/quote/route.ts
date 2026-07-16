@@ -1,8 +1,35 @@
 import { NextResponse } from "next/server";
+import { getLoyaltyTierForSpend } from "@/lib/catalog/data";
 import { getPricingContext } from "@/lib/catalog/source";
+import type { AccountPricingContext } from "@/lib/catalog/types";
 import { computeQuote } from "@/lib/pricing/engine";
 import { PricingError, type QuoteInput } from "@/lib/pricing/types";
 import { quoteRequestSchema } from "@/lib/schemas/quote";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+
+/**
+ * Anonymous quotes get account: null. Signed-in customers get their loyalty
+ * tier + store credit attached so the public calculator and checkout agree.
+ * Dynamically imported because lib/auth/session pulls "server-only", which the
+ * hermetic fast suite (Supabase env blanked) cannot resolve — the gate keeps
+ * that import out of the test graph entirely.
+ */
+async function getAccountContext(): Promise<AccountPricingContext | null> {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const { getSessionProfile } = await import("@/lib/auth/session");
+    const session = await getSessionProfile();
+    if (!session) return null;
+    const tier = getLoyaltyTierForSpend(session.profile.lifetime_spend_cents);
+    return {
+      loyaltyDiscountBp: tier.discountBp,
+      loyaltyCashbackBp: tier.cashbackBp,
+      storeCreditCents: session.profile.store_credit_cents,
+    };
+  } catch {
+    return null; // a broken session must never break public quoting
+  }
+}
 
 /**
  * Server-authoritative price quote. The client sends only selections; this route
@@ -32,11 +59,9 @@ export async function POST(request: Request) {
   const input = parsed.data as QuoteInput;
 
   try {
-    // account is null for anonymous quotes; Phase 2 attaches the signed-in
-    // customer's loyalty tier + store-credit balance server-side.
     const ctx = await getPricingContext(input.gameSlug, input.serviceType, {
       couponCode: input.couponCode,
-      account: null,
+      account: await getAccountContext(),
     });
     const quote = computeQuote(input, ctx);
     return NextResponse.json(
