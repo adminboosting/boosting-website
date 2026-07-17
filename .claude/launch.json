@@ -4,14 +4,14 @@
     {
       "name": "dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
-      "port": 3000
+      "runtimeArgs": ["exec", "next", "dev"],
+      "autoPort": true
     },
     {
       "name": "preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["exec", "next", "start", "--port", "3100"],
-      "port": 3100
+      "runtimeArgs": ["exec", "next", "start"],
+      "autoPort": true
     }
   ]
 }

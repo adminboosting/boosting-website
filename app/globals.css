@@ -605,3 +605,188 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* ============================================================================
+ * "The Climb" — full-width diagonal rank ladder (ported from Claude Design).
+ * Low-left → high-right; the crowned frog climbs on load, rests at the base, and
+ * leaps to the hovered tier (which lights electric + shows a hint). Node/frog
+ * positions are measured in JS; motion here is transform/opacity only, glows
+ * animate a pre-set box-shadow's opacity, and the global reduced-motion rule
+ * collapses it (the JS also skips the climb/leaps). Component: lily-ladder.tsx.
+ * ========================================================================== */
+.rf-climb {
+  position: relative;
+  width: 100%;
+  height: clamp(340px, 34vw, 470px);
+  --pad-x: 4%;
+  --hspread: 64%;
+  --pad-y: 9%;
+  --vspread: 80%;
+}
+@media (max-width: 680px) {
+  .rf-climb {
+    height: clamp(430px, 92vw, 580px);
+    --hspread: 26%;
+    --pad-x: 5%;
+  }
+}
+.rf-climb-trail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.rf-climb-trail line {
+  stroke-linecap: round;
+}
+.rf-climb-trail .base {
+  stroke: color-mix(in oklch, var(--pond) 30%, var(--sage-line));
+  stroke-width: 2;
+  stroke-dasharray: 2 9;
+  opacity: 0.7;
+}
+.rf-climb-trail .elec {
+  stroke: var(--electric);
+  stroke-width: 3;
+  opacity: 0.16;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.rf-climb[data-lit="true"] .rf-climb-trail .elec {
+  opacity: 0.8;
+}
+.rf-climb-node {
+  position: absolute;
+  left: calc(var(--pad-x) + var(--i) * (var(--hspread) / var(--n)));
+  bottom: calc(var(--pad-y) + var(--i) * (var(--vspread) / var(--n)));
+  transform: translateY(50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 15px 5px 8px;
+  border-radius: 999px;
+  border: 1px solid;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  background: var(--card);
+  font-family: var(--font-sans);
+  transition:
+    transform var(--duration-base) var(--ease-spring),
+    border-color var(--duration-base) var(--ease-out);
+}
+.rf-climb-node:hover,
+.rf-climb-node:focus-visible {
+  transform: translateY(50%) scale(1.06);
+  outline: none;
+}
+.rf-climb-node[data-active="true"] {
+  border-color: var(--electric-strong) !important;
+}
+.rf-climb-node .g {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  box-shadow: 0 0 16px 3px var(--glow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.rf-climb-node[data-active="true"] .g {
+  opacity: 0.75;
+  animation: live-pulse 2s var(--ease-in-out) infinite;
+}
+.rf-climb-node .pip {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.rf-climb-node .lab {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+@media (max-width: 680px) {
+  .rf-climb-node .lab {
+    font-size: 0.75rem;
+  }
+  .rf-climb-node {
+    padding: 4px 11px 4px 7px;
+  }
+}
+.rf-climb-hint {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, -100%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: rf-hintin var(--duration-base) var(--ease-spring) both;
+}
+.rf-climb-hint .t {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.rf-climb-hint .p {
+  font-size: 0.75rem;
+  color: var(--crown-ink);
+  font-family: var(--font-mono);
+}
+.rf-climb-frog {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  transition:
+    transform var(--duration-slow) var(--ease-spring),
+    opacity var(--duration-base) var(--ease-out);
+  will-change: transform;
+}
+.rf-climb-hopper {
+  display: block;
+}
+.rf-climb-hopper[data-kind="hop"] {
+  animation: climb-hop 380ms var(--ease-out);
+}
+.rf-climb-hopper[data-kind="leap"] {
+  animation: climb-leap 480ms var(--ease-out);
+}
+
+@keyframes climb-hop {
+  0% {
+    transform: translateY(0);
+  }
+  42% {
+    transform: translateY(-14px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes climb-leap {
+  0% {
+    transform: translateY(0) scaleY(1);
+  }
+  34% {
+    transform: translateY(-28px) scaleY(1.06);
+  }
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+}
+@keyframes rf-hintin {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -90%) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}

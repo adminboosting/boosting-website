@@ -13,7 +13,7 @@ import { SERVICES, getServiceByType } from "@/lib/catalog/content";
 import type { GameSlug, ServiceType } from "@/lib/catalog/types";
 import { getSiteUrl } from "@/lib/config";
 import { formatUsdFromCents } from "@/lib/money";
-import { LilyLadder, tierColorVar } from "@/components/brand/lily-ladder";
+import { LilyLadder } from "@/components/brand/lily-ladder";
 
 export const revalidate = 3600;
 
@@ -138,7 +138,7 @@ export default async function GameHubPage({ params }: { params: Promise<{ game: 
         </p>
         <LilyLadder
           className="mt-7"
-          rungs={tiers.map((tier) => ({ label: tier, colorVar: tierColorVar(tier) }))}
+          rungs={tiers.map((tier) => ({ label: tier }))}
         />
       </section>
     </div>

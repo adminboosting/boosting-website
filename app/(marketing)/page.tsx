@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Coins, Gamepad2, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { LilyLadder, tierColorVar } from "@/components/brand/lily-ladder";
-import { getGames } from "@/lib/catalog/source";
+import { LilyLadder } from "@/components/brand/lily-ladder";
+import { getGames, getRanks } from "@/lib/catalog/source";
 import { SERVICES } from "@/lib/catalog/content";
 import { BRAND_NAME } from "@/lib/config";
+import { formatUsdFromCents } from "@/lib/money";
 import { motion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -15,11 +16,19 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-// A generic climb for the hero's signature ladder (Bronze → the crowned top).
-const HERO_RUNGS = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master"].map((tier) => ({
-  label: tier,
-  colorVar: tierColorVar(tier),
-}));
+// The full League ladder for the signature "climb" — Iron up to the crowned top.
+const CLIMB_TIERS = [
+  "Iron",
+  "Bronze",
+  "Silver",
+  "Gold",
+  "Platinum",
+  "Emerald",
+  "Diamond",
+  "Master",
+  "Grandmaster",
+  "Challenger",
+];
 
 const GAME_ACCENT: Record<string, string> = {
   "league-of-legends": "text-rank-gold",
@@ -48,6 +57,19 @@ const STEPS = [
 
 export default async function HomePage() {
   const games = await getGames();
+
+  // Real per-division "from" prices for the climb, straight from the LoL catalog.
+  // The crowned top tiers (Master/Grandmaster/Challenger) are custom-quote (0).
+  const lolRanks = await getRanks("league-of-legends");
+  const perDivisionByTier = new Map<string, number>();
+  for (const r of lolRanks) {
+    if (!perDivisionByTier.has(r.tier)) perDivisionByTier.set(r.tier, r.climbPriceCents);
+  }
+  const climbRungs = CLIMB_TIERS.map((tier) => {
+    const cents = perDivisionByTier.get(tier) ?? 0;
+    return { label: tier, price: cents > 0 ? formatUsdFromCents(cents) : null };
+  });
+
   return (
     <>
       {/* Hero — a thesis rooted in the subject (the ladder/pond), anchored by
@@ -70,8 +92,8 @@ export default async function HomePage() {
           />
         </div>
 
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 sm:py-24 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className={motion.heroEnter}>
+        <div className="mx-auto w-full max-w-6xl px-6 py-20 sm:py-24">
+          <div className={cn("max-w-3xl", motion.heroEnter)}>
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground">
               <Sparkles className="size-3.5 text-crown-ink" />
               Piloted or duo, priced live
@@ -115,16 +137,21 @@ export default async function HomePage() {
             </ul>
           </div>
 
-          {/* The signature ladder */}
-          <div className={cn("relative mx-auto w-full max-w-sm", motion.heroEnter)}>
-            <div className="rounded-2xl border border-border bg-card/70 p-7 shadow-lg backdrop-blur-sm sm:p-9">
-              <p className="mb-6 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                The climb
-              </p>
-              <LilyLadder rungs={HERO_RUNGS} />
-            </div>
-          </div>
         </div>
+      </section>
+
+      {/* The climb — the signature ladder, full-width and page-integrated (no card) */}
+      <section
+        aria-labelledby="climb-heading"
+        className={cn("mx-auto w-full max-w-6xl px-6 pb-6", motion.sectionReveal)}
+      >
+        <p
+          id="climb-heading"
+          className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+        >
+          The climb
+        </p>
+        <LilyLadder rungs={climbRungs} />
       </section>
 
       {/* Games */}
