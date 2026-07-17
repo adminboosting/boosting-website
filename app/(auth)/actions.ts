@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
 import { getSiteUrl } from "@/lib/config";
+import { normalizeReferralCode } from "@/lib/referrals/core";
+import { attributeReferral } from "@/lib/referrals/service";
 import { signInSchema, signUpSchema } from "@/lib/schemas/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -41,9 +43,7 @@ const NOT_ENABLED = "Accounts are not enabled yet.";
  */
 function sanitizeNextPath(next: FormDataEntryValue | null): string {
   if (typeof next !== "string") return "/account";
-  return next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
-    ? next
-    : "/account";
+  return next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/account";
 }
 
 /** Map Supabase auth error codes to copy a customer can act on. */
@@ -110,6 +110,22 @@ export async function signUp(_prev: SignUpState, formData: FormData): Promise<Si
     },
   });
   if (error) return { ok: false, needsConfirmation: false, error: friendlyAuthError(error) };
+
+  // Referral attribution — best-effort, strictly AFTER a successful signUp. A
+  // hidden `ref` field is untrusted input: normalize here (junk becomes "no
+  // referral"). attributeReferral never throws by contract; the try/catch is
+  // belt-and-braces because a referral hiccup must never fail account
+  // creation. Awaited (not fire-and-forget) so the write isn't lost when the
+  // serverless invocation freezes after the response.
+  const refRaw = formData.get("ref");
+  const refCode = typeof refRaw === "string" ? normalizeReferralCode(refRaw) : null;
+  if (refCode && data.user) {
+    try {
+      await attributeReferral(refCode, data.user.id);
+    } catch (attributionError) {
+      console.error("[auth] referral attribution failed:", attributionError);
+    }
+  }
 
   // With email confirmation ON, Supabase returns no session — the form shows
   // its "check your email" state. With it off, the user is already signed in.

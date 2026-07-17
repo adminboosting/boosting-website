@@ -21,6 +21,7 @@ const ADMIN_NAV = [
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/boosters", label: "Boosters" },
   { href: "/admin/coupons", label: "Coupons" },
+  { href: "/admin/reviews", label: "Reviews" },
   { href: "/admin/settings", label: "Settings" },
 ] as const;
 

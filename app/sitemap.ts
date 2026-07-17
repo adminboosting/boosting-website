@@ -21,9 +21,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const gameRoutes = (await getGames()).map((g) => `/${g.slug}`);
   const moneyRoutes = allMoneyPagePaths().map((p) => `/${p.game}/${p.service}`);
 
+  // No lastModified: stamping every URL with the deploy time is a fake
+  // freshness signal — omitting the field is the honest option.
   return [...staticRoutes, ...gameRoutes, ...moneyRoutes].map((path) => ({
     url: `${base}${path}`,
-    lastModified: new Date(),
     changeFrequency: path === "" ? "daily" : "weekly",
     priority: path === "" ? 1 : path.split("/").length > 2 ? 0.8 : 0.6,
   }));

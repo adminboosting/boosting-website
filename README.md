@@ -13,8 +13,9 @@ Boost, Placement Matches, Ranked Net Wins — in **Piloted** or **Duo/self-play*
 
 Built to run entirely on the **free tiers of Vercel + Supabase**. Payments are
 crypto-first (NOWPayments sandbox in dev) plus Stripe **test mode only**. Five AI
-features are scaffolded but **off by default** with deterministic fallbacks — no
-paid API is required for the MVP.
+features are scaffolded but **off by default** — each ships a deterministic
+fallback today (all five are named in [AI features](#ai-features-off-by-default))
+— so no paid API is required for the MVP.
 
 ---
 
@@ -89,7 +90,8 @@ app/            Next.js App Router: (marketing), (auth), (shop) account/orders/c
 components/     ui (shadcn), brand, site, calculator, checkout, orders, chat, booster,
                 admin, auth, legal
 lib/            config, supabase clients, auth/session + nav, pricing engine, orders,
-                realtime, credentials vault, schemas, motion
+                realtime, credentials vault, schemas, motion, ai (deterministic
+                fallbacks), loyalty, referrals, reviews
 supabase/       migrations/ (0001–0007), seed.sql (generated), config.toml
 scripts/        generate-key, check-client-secrets, migrate + seed runner (scripts/lib)
 tests/          unit/, integration/, db/ (PGlite-backed RLS + migration tests)
@@ -105,7 +107,39 @@ Work proceeds phase by phase; `main` stays deployable at every gate.
 - **Phase 3 — Customer / booster / admin surfaces + realtime chat** ✅ order chat
   (Supabase Realtime with polling fallback), progress timeline, moderated reviews,
   booster desk, admin assignment/boosters/coupons/settings
-- **Phase 4 — Loyalty, referrals, trust, deterministic "AI" fallbacks, polish**
+- **Phase 4 — Loyalty, referrals, trust, deterministic "AI" fallbacks, polish** ✅
+  live `/reviews` + admin moderation queue, loyalty tier card + credit ledger on
+  the account page, $5 referral program, the five AI fallbacks below, CSP +
+  security headers, mobile nav, skip links, global error boundary
+
+## AI features (off by default)
+
+The five features, canonically named in [`lib/ai/features.ts`](lib/ai/features.ts)
+so this list can never drift from the code. Each ships **today** as a pure,
+unit-tested deterministic implementation; [`lib/ai/gate.ts`](lib/ai/gate.ts) is
+the single switch (`AI_FEATURES_ENABLED=true` **and** `ANTHROPIC_API_KEY` set),
+so real AI implementations can swap in later without touching any call site.
+
+| # | Feature | Deterministic implementation | Surfaced at |
+| --- | --- | --- | --- |
+| 1 | Smart ETA | `lib/pricing/engine.ts` — `etaHours` on every quote | calculator + order pages |
+| 2 | Review moderation assist | `lib/ai/moderation.ts` — heuristic content flags | `/admin/reviews` queue |
+| 3 | Order summary | `lib/ai/order-summary.ts` — one-line template | `/admin/orders/[id]` |
+| 4 | FAQ answer suggestions | `lib/ai/faq-suggest.ts` — keyword-overlap ranking | `/contact` "Common answers" |
+| 5 | Chat quick replies | `lib/ai/quick-replies.ts` — canned per-status replies | not wired — deliberate cut ([DECISIONS.md](DECISIONS.md)) |
+
+## Loyalty & referrals
+
+- **Loyalty tiers** (Bronze → Diamond, thresholds single-sourced in
+  `lib/catalog/data.ts`) give a % discount on every order plus % **cashback as
+  store credit**, credited when an admin confirms a payment. The account page
+  shows the current tier, progress to the next one, and the credit ledger.
+- **Referrals:** every account gets a permanent share link
+  (`/sign-up?ref=CODE`, shown on the account page). When a referred customer's
+  **first payment is confirmed**, the referrer earns a fixed **$5 store credit**
+  (`REFERRAL_REWARD_CENTS` in `lib/referrals/core.ts`). One reward per referred
+  customer, self-referrals ignored, abusive rows voidable — model rationale in
+  [DECISIONS.md](DECISIONS.md), day-to-day operations in [RUNBOOK.md](RUNBOOK.md).
 
 ## Notes for the owner
 

@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Coins, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
+import { LoyaltyTierCard } from "@/components/account/loyalty-tier-card";
+import { ReferralCard } from "@/components/account/referral-card";
 import { OrderStatusBadge } from "@/components/orders/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getSessionProfile } from "@/lib/auth/session";
 import { getServiceByType } from "@/lib/catalog/content";
 import { getGames } from "@/lib/catalog/source";
 import type { OrderMode, ServiceType } from "@/lib/catalog/types";
+import { describeLedgerKind, type LoyaltyLedgerKind } from "@/lib/loyalty/view";
 import { formatUsdFromCents } from "@/lib/money";
 import type { OrderStatus } from "@/lib/orders/transitions";
 import { createClient } from "@/lib/supabase/server";
@@ -40,6 +43,21 @@ interface UnreadCandidateRow {
   order_id: string;
   sender_id: string | null;
   message_reads: { message_id: string }[];
+}
+
+/**
+ * The loyalty_ledger columns the credit-activity table reads, as PostgREST
+ * returns them (snake_case). `amount_cents` is negative on spend rows;
+ * `order_id` is nullable (manual adjustments, deleted orders).
+ */
+interface LoyaltyLedgerRow {
+  id: string;
+  order_id: string | null;
+  kind: LoyaltyLedgerKind;
+  amount_cents: number;
+  balance_after_cents: number;
+  note: string | null;
+  created_at: string;
 }
 
 /** Server-rendered dates; en-US to match the money formatter. */
@@ -85,25 +103,27 @@ export default async function AccountPage() {
     }
   }
 
+  // Credit activity: `loyalty_ledger_select_own` already scopes reads to the
+  // caller, but keep the explicit user_id filter per the "literally mine"
+  // convention above (admins can read every row under that policy).
+  const { data: ledgerData } = await supabase
+    .from("loyalty_ledger")
+    .select("id, order_id, kind, amount_cents, balance_after_cents, note, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const ledger = (ledgerData ?? []) as LoyaltyLedgerRow[];
+
   const games = await getGames();
   const gameName = (slug: string) => games.find((g) => g.slug === slug)?.name ?? slug;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">My orders</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Signed in as {profile.display_name ?? profile.email ?? "your account"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-card/40 px-3 py-2 text-sm">
-          <Coins className="size-4 text-accent" aria-hidden="true" />
-          <span className="text-muted-foreground">Store credit</span>
-          <span className="font-semibold tabular-nums">
-            {formatUsdFromCents(profile.store_credit_cents)}
-          </span>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">My orders</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Signed in as {profile.display_name ?? profile.email ?? "your account"}
+        </p>
       </div>
 
       {orders.length === 0 ? (
@@ -157,6 +177,69 @@ export default async function AccountPage() {
           })}
         </ul>
       )}
+
+      <LoyaltyTierCard
+        lifetimeSpendCents={profile.lifetime_spend_cents}
+        storeCreditCents={profile.store_credit_cents}
+      />
+
+      <section aria-labelledby="credit-activity-heading" className="mt-8">
+        <h2 id="credit-activity-heading" className="text-sm font-semibold">
+          Credit activity
+        </h2>
+        {ledger.length === 0 ? (
+          <div className="mt-3 rounded-xl border border-border bg-card/40 p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No credit activity yet — cashback lands here when a payment is confirmed.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-3 overflow-x-auto rounded-xl border border-border bg-card/40">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Activity</th>
+                  <th className="px-4 py-3 text-right font-medium">Amount</th>
+                  <th className="px-4 py-3 text-right font-medium">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {ledger.map((entry) => (
+                  <tr key={entry.id}>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {DATE_FORMAT.format(new Date(entry.created_at))}
+                    </td>
+                    <td className="px-4 py-3">
+                      {describeLedgerKind(entry.kind)}
+                      {entry.note && (
+                        <span className="ml-1 text-xs text-muted-foreground">— {entry.note}</span>
+                      )}
+                      {entry.order_id && (
+                        <Link
+                          href={`/orders/${entry.order_id}`}
+                          className="ml-2 text-xs text-primary underline-offset-4 hover:underline"
+                        >
+                          View order
+                        </Link>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {entry.amount_cents > 0 ? "+" : ""}
+                      {formatUsdFromCents(entry.amount_cents)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {formatUsdFromCents(entry.balance_after_cents)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <ReferralCard userId={user.id} />
     </div>
   );
 }

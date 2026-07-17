@@ -14,10 +14,11 @@ import { AdminActionButton } from "@/components/admin/admin-action-button";
 import { ORDER_STATUS_META, OrderStatusBadge } from "@/components/admin/order-status-badge";
 import { OrderChat } from "@/components/chat/order-chat";
 import { Button } from "@/components/ui/button";
+import { summarizeOrder } from "@/lib/ai/order-summary";
 import { requireAdmin } from "@/lib/auth/session";
 import { getServiceByType } from "@/lib/catalog/content";
-import { getGames } from "@/lib/catalog/source";
-import type { OrderMode, ServiceType } from "@/lib/catalog/types";
+import { getGames, getRanks } from "@/lib/catalog/source";
+import type { GameSlug, OrderMode, ServiceType } from "@/lib/catalog/types";
 import { formatUsdFromCents } from "@/lib/money";
 import { canTransition, type OrderStatus } from "@/lib/orders/transitions";
 import type { QuoteConfig } from "@/lib/pricing/types";
@@ -152,7 +153,7 @@ export default async function AdminOrderDetailPage({
   const order = data as unknown as AdminOrderDetailRow | null;
   if (!order) notFound();
 
-  const [paymentsResult, progressResult, assignmentsResult, messagesResult, games] =
+  const [paymentsResult, progressResult, assignmentsResult, messagesResult, games, ranks] =
     await Promise.all([
       supabase
         .from("payments")
@@ -179,12 +180,31 @@ export default async function AdminOrderDetailPage({
         .order("created_at", { ascending: false })
         .limit(100),
       getGames(),
+      // Rank labels for the deterministic summary line ("Gold IV → Plat II").
+      getRanks(order.game_slug as GameSlug),
     ]);
   const payments = (paymentsResult.data ?? []) as PaymentRow[];
   const progress = (progressResult.data ?? []) as ProgressRow[];
   const assignments = (assignmentsResult.data ?? []) as unknown as AssignmentRow[];
   const messages = ((messagesResult.data ?? []) as ChatMessageRow[]).slice().reverse();
   const gameName = games.find((g) => g.slug === order.game_slug)?.name ?? order.game_slug;
+
+  // Deterministic one-line summary — AI feature "order_summary"
+  // (lib/ai/features.ts); the pure template runs while AI stays off.
+  const latestProgress = progress.length > 0 ? progress[progress.length - 1] : null;
+  const orderSummary = summarizeOrder(
+    {
+      gameName,
+      serviceType: order.service_type,
+      mode: order.mode,
+      status: order.status,
+      config: order.config,
+      totalCents: order.total_cents,
+      createdAt: order.created_at,
+      ranks,
+    },
+    latestProgress ? { note: latestProgress.note, createdAt: latestProgress.created_at } : null,
+  );
 
   const activeAssignment = assignments.find((a) => a.is_active) ?? null;
   const pastAssignments = assignments.filter((a) => !a.is_active);
@@ -224,6 +244,8 @@ export default async function AdminOrderDetailPage({
         <h1 className="text-3xl font-bold tracking-tight">Order #{order.id.slice(0, 8)}</h1>
         <OrderStatusBadge status={order.status} />
       </header>
+
+      <p className="mt-2 text-sm text-muted-foreground">{orderSummary}</p>
 
       <section className="mt-6 rounded-xl border border-border bg-card/40 p-5">
         <h2 className="font-semibold">Summary</h2>

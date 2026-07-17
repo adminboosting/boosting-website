@@ -8,7 +8,19 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin", "/booster", "/dashboard", "/api", "/checkout"],
+        // Every authed/private surface. (/dashboard was a stale entry — the
+        // route never shipped; account/orders/auth pages are the real ones.)
+        disallow: [
+          "/admin",
+          "/booster",
+          "/checkout",
+          "/account",
+          "/orders",
+          "/login",
+          "/sign-up",
+          "/auth",
+          "/api",
+        ],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,

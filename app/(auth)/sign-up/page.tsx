@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 import { getSessionUser } from "@/lib/auth/session";
+import { normalizeReferralCode } from "@/lib/referrals/core";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
@@ -11,10 +12,20 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default async function SignUpPage() {
+export default async function SignUpPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
   // The proxy already bounces signed-in visitors off /sign-up; this re-check
   // keeps the page correct on its own (redirects are never authorization).
   if (await getSessionUser()) redirect("/account");
+
+  // Referral landing: `?ref=CODE` from a shared link rides a hidden form field
+  // into the signUp action. Normalized here so junk never reaches the DOM;
+  // the action re-normalizes anyway (hidden inputs are user input too).
+  const { ref } = await searchParams;
+  const refCode = typeof ref === "string" ? normalizeReferralCode(ref) : null;
 
   return (
     <div>
@@ -25,7 +36,7 @@ export default async function SignUpPage() {
 
       {isSupabaseConfigured() ? (
         <>
-          <SignUpForm />
+          <SignUpForm refCode={refCode} />
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}

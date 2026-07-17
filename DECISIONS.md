@@ -467,3 +467,76 @@ code comments and RUNBOOK additions rather than a log section here.)
 - **Status badge folded to one home.** `components/orders/status-badge.tsx` now
   owns `ORDER_STATUS_META`; the admin copy is a re-export shim and the shop
   pages import the shared badge — the three duplicated copies are gone.
+
+---
+
+## Phase 4 — Loyalty, referrals, trust, deterministic "AI" fallbacks, polish
+
+1. **Referral program: share-row model, fixed $5, pending→rewarded (no
+   `qualified` stop).** The existing schema constrains the design:
+   `referrals.code` is UNIQUE **per row** and each row holds at most one
+   `referred_id`, so a reusable code cannot live on a claimable row without a
+   migration. Model chosen (no migration): each user gets one **share row**
+   (`referred_id IS NULL`) carrying their permanent code; every attributed
+   signup inserts a **new row** `{referrer_id, referred_id, freshly generated
+   code, status 'pending'}`. The share row is never claimed — one code serves
+   unlimited signups. Do **not** "simplify" to claiming the share row: the
+   second referral would have nowhere to go and attributions would silently
+   drop. The reward is a fixed **$5** (`REFERRAL_REWARD_CENTS = 500`,
+   integer cents, in `lib/referrals/core.ts`) — a const, not a `site_settings`
+   key: one less pre-launch knob to misconfigure, and changing it later is a
+   one-line diff. Lifecycle goes **pending → rewarded** directly when the
+   referred customer's first manual payment is confirmed (hooked into
+   `recordManualPayment`'s confirmed branch, gated on the *pre-bump*
+   `lifetime_spend_cents === 0` read — re-reading after the bump would never
+   fire). The enum's `qualified` intermediate state is skipped: no state
+   between "signed up" and "paid" earns anything, so it would be bookkeeping
+   without a customer. `void` is reserved for abuse (SQL editor for now, per
+   RUNBOOK — no admin UI this phase, a deliberate cut). All referral writes are
+   service-role and best-effort (they may never fail sign-up or payment
+   confirmation); the status-predicated reward UPDATE makes a concurrent
+   double-confirm a no-op instead of a double payout.
+
+2. **Static-config CSP with `'unsafe-inline'` — no middleware nonces.** The
+   full security-header set (CSP, HSTS `max-age=63072000; includeSubDomains;
+   preload`, `X-Frame-Options: DENY`, nosniff, `Referrer-Policy:
+   strict-origin-when-cross-origin`, Permissions-Policy) ships from
+   `next.config.ts` `headers()` as static config, with the builders
+   (`buildContentSecurityPolicy` / `buildSecurityHeaders`) exported as plain
+   functions so `tests/unit/security-headers.test.ts` asserts the policy
+   without evaluating env-dependent config. Why no nonces: removing
+   `'unsafe-inline'` from `script-src` requires per-request nonces via
+   middleware, but Next 16's inline hydration scripts and the JSON-LD
+   `dangerouslySetInnerHTML` in the root layout would all need nonce plumbing,
+   and `proxy.ts` is deliberately a redirect-only layer (Phase A rule) —
+   out of scope for the polish phase. `'unsafe-eval'` is dev-only (React
+   Refresh), gated on `NODE_ENV`; `style-src 'unsafe-inline'` is required by
+   Tailwind v4 + Next style injection. `connect-src` derives the exact
+   Supabase origin from `NEXT_PUBLIC_SUPABASE_URL` at config-eval time **plus
+   its `wss://` twin** — an `https:` source does NOT authorize websockets in
+   CSP, and order-chat realtime dies without the explicit `wss://` entry; if
+   the env var is absent at build time the wildcard pair
+   `https://*.supabase.co wss://*.supabase.co` is emitted instead. Sentry
+   stays same-origin through the `/monitoring` tunnel — deliberately **no**
+   sentry.io entry, so a tunnel misconfig surfaces as a visible CSP violation
+   instead of being masked. Vercel Analytics is same-origin
+   (`/_vercel/insights/*`, covered by `'self'`); `vitals.vercel-insights.com`
+   is kept for the vitals beacon variant.
+
+3. **The five AI features — named canonically, deterministic today, one wiring
+   deliberately cut.** The README's long-standing "five AI features" claim is
+   now backed by a registry the docs and tests import
+   (`lib/ai/features.ts`): **Smart ETA** (`lib/pricing/engine.ts#etaHours`,
+   live since Phase 1), **Review moderation assist** (`lib/ai/moderation.ts`,
+   wired into /admin/reviews), **Order summary** (`lib/ai/order-summary.ts`,
+   wired into /admin/orders/[id]), **FAQ answer suggestions**
+   (`lib/ai/faq-suggest.ts`, wired into /contact), **Chat quick replies**
+   (`lib/ai/quick-replies.ts`). Every deterministic path is a pure,
+   fast-suite-tested function; no Anthropic client exists yet.
+   `lib/ai/gate.ts#isAiEnabled()` (true only when `AI_FEATURES_ENABLED=true`
+   **and** `ANTHROPIC_API_KEY` is set) is the single seam, so AI
+   implementations can swap in per-module later without touching call sites.
+   **Chat quick replies ships function + tests only — its UI wiring is cut on
+   purpose:** editing the realtime chat composer in the final polish phase
+   risks regressing Phase 3's most fragile surface for a nice-to-have, and
+   wiring it later is a one-component change.

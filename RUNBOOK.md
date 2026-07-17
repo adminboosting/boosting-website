@@ -5,11 +5,12 @@ you (the owner) need to take — creating accounts, getting keys, pasting them i
 dashboards — so you can run the site without reading code. Everything here uses
 **free** services.
 
-> **Where you are now (Phase 3):** the site has the public calculator, sign-in,
-> checkout → orders, the credential vault, order chat, and the booster + admin
-> desks. Steps 1–7 put it live; the newest manual step is the **Realtime check**
-> below (do it once after applying the database migrations). Steps for features
-> that haven't arrived yet are marked **(needed from Phase N)**.
+> **Where you are now (Phase 4 — feature-complete):** the site has the public
+> calculator, sign-in, checkout → orders, the credential vault, order chat, the
+> booster + admin desks, real customer reviews with a moderation queue
+> (**/admin/reviews**), loyalty cashback + credit ledger on the account page,
+> and the $5 referral program. Steps 1–7 put it live; the remaining manual work
+> is the **Pre-launch checklist** at the bottom of this file.
 
 Legend: 🟢 = do this now · 🟡 = do this when the phase arrives · 🔒 = a secret,
 never share or commit it.
@@ -226,6 +227,39 @@ but they're what keeps the look consistent as things get polished.
 ## Pre-launch checklist (the admin panel will remind you)
 
 - [ ] Review and set final prices, then flip `site_settings.pricing_reviewed` to true.
-- [ ] Have the placeholder legal pages (`/legal/*`) reviewed by a lawyer.
+- [ ] The footer prints "Pricing shown is placeholder and subject to change" —
+      it does **not** disappear on its own. Once final prices are set, decide
+      deliberately: remove the line, or keep it while prices are still settling.
+- [ ] Replace the three placeholder legal pages (`/legal/terms`, `/legal/privacy`,
+      `/legal/refund-policy`) with real, lawyer-reviewed copy. Their page
+      descriptions currently self-describe as drafts, so leaving them as-is
+      advertises "placeholder" to search engines and customers alike.
+- [ ] Publish your first reviews. Customers can submit a review from a completed
+      order, but **nothing shows publicly until you approve it** in
+      **/admin/reviews** (each pending review shows automatic content flags —
+      links, contact info, shouting — to help you decide). Until at least one is
+      published, `/reviews` shows clearly-labeled sample reviews.
+- [ ] Confirm the security headers are live on the real domain:
+      ```bash
+      curl -sI https://rankedfrogs.com | grep -i content-security
+      ```
+      should print a `content-security-policy:` line that mentions your Supabase
+      project URL (both `https://…supabase.co` and `wss://…supabase.co`). Then
+      open an order chat in a real browser and confirm live messages still
+      arrive instantly — the CSP is the one thing that could silently break
+      chat, and the browser console would show "Content Security Policy" errors
+      if it did.
+- [ ] Know the referral numbers: a referrer earns a **$5 store credit** when the
+      person they referred gets their **first** payment confirmed (one reward
+      per referred customer; self-referrals are ignored automatically). To void
+      an abusive referral (e.g. one person signing up twice), open Supabase
+      **SQL Editor** and run
+      `update referrals set status = 'void' where id = '<row id from the referrals table>';`
+      — a voided row is never rewarded. There is deliberately no admin UI for
+      this yet.
+- [ ] Reminder: the five AI features stay **off** (their free, deterministic
+      fallbacks run instead) until you add `ANTHROPIC_API_KEY` **and** set
+      `AI_FEATURES_ENABLED=true`. Leaving them off costs nothing and everything
+      still works — see "Turning AI on" above.
 - [ ] Verify a sending domain in Resend and update `EMAIL_FROM`.
 - [ ] Switch payments out of sandbox/test only when you're truly ready to take money.

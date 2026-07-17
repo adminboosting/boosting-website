@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Coins, Gamepad2, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -7,6 +8,12 @@ import { SERVICES } from "@/lib/catalog/content";
 import { BRAND_NAME } from "@/lib/config";
 import { motion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+
+// Explicit canonical for the root: query-string/UTM variants all resolve to
+// "/" (absolute URL comes from metadataBase in app/layout.tsx).
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 // A generic climb for the hero's signature ladder (Bronze → the crowned top).
 const HERO_RUNGS = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master"].map((tier) => ({

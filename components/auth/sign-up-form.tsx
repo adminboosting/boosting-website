@@ -12,8 +12,11 @@ const INITIAL_STATE: SignUpState = { ok: false, needsConfirmation: false, error:
  * confirmation is on, the action returns `needsConfirmation` and the form
  * swaps to a "check your email" state; with confirmation off, the action
  * redirects to /account and this component never re-renders.
+ *
+ * `refCode` (already normalized by the sign-up page) rides along as a hidden
+ * field — the action treats it as untrusted input and re-normalizes.
  */
-export function SignUpForm() {
+export function SignUpForm({ refCode = null }: { refCode?: string | null }) {
   const [state, formAction, pending] = useActionState(signUp, INITIAL_STATE);
 
   if (state.ok && state.needsConfirmation) {
@@ -34,11 +37,16 @@ export function SignUpForm() {
   return (
     <form action={formAction} className="mt-6 space-y-4">
       {state.error && (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive-foreground">
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive-foreground"
+        >
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <span>{state.error}</span>
         </div>
       )}
+
+      {refCode && <input type="hidden" name="ref" value={refCode} />}
 
       <TextField
         label="Display name (optional)"

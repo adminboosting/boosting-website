@@ -8,6 +8,7 @@ import { getLoyaltyTierForSpend } from "@/lib/catalog/data";
 import { applyBp } from "@/lib/money";
 import { assertTransition, OrderStatusError, type OrderStatus } from "@/lib/orders/transitions";
 import type { ChatMessageRow } from "@/lib/realtime/order-chat-channel";
+import { rewardReferralOnFirstPayment } from "@/lib/referrals/service";
 import { assignBoosterSchema, uuidSchema } from "@/lib/schemas/admin-ops";
 import { chatMessageSchema } from "@/lib/schemas/chat";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -259,6 +260,20 @@ export async function recordManualPayment(
         balance_after_cents: balanceAfter,
         note: `Cashback (${tier.name}) — manual payment confirmed`,
       });
+    }
+
+    // Referral reward — fires only on the customer's FIRST confirmed payment,
+    // gated on the PRE-bump lifetime_spend_cents read above (after the bump
+    // it can never be 0 again, so re-reading here would never fire). Runs
+    // after the profile update like the cashback credit; best-effort — the
+    // referral row's own pending→rewarded status predicate keeps a retry or
+    // concurrent confirm from double-paying.
+    if (balances.lifetime_spend_cents === 0) {
+      try {
+        await rewardReferralOnFirstPayment(order.user_id, order.id);
+      } catch (referralError) {
+        console.error(`[admin] referral reward failed for order ${order.id}:`, referralError);
+      }
     }
   } else {
     console.error(`[admin] no profile for order ${order.id} owner — loyalty skipped`);
