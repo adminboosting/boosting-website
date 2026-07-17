@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Hanken_Grotesk, Space_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { BRAND_NAME, BRAND_TAGLINE, getSiteUrl } from "@/lib/config";
+import { PageTransition } from "@/components/site/page-transition";
 import "./globals.css";
 
 // Type system: a bold geometric/technical display (Space Grotesk — reads as
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     >
       <body className="min-h-dvh bg-background text-foreground antialiased">
         {children}
+        <PageTransition />
         <Analytics />
         <script
           type="application/ld+json"

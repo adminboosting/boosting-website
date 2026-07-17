@@ -514,3 +514,94 @@
     }
   }
 }
+
+/* ============================================================================
+ * Big route transition — a pond curtain sweeps across with the crowned frog
+ * bouncing on it, covering the outgoing page and revealing the incoming one.
+ * transform/opacity only; the JS skips it entirely under reduced motion and the
+ * global reduced-motion rule collapses any residual animation.
+ * ========================================================================== */
+.page-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  overflow: hidden;
+}
+.page-transition__panel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(120deg, var(--pond) 0%, var(--pond-deep) 55%, var(--deep-water) 100%);
+  transform: translateX(-100%);
+  will-change: transform;
+}
+.page-transition__frog {
+  display: block;
+  width: clamp(72px, 12vw, 132px);
+  aspect-ratio: 1;
+  opacity: 0;
+  transform-origin: bottom center;
+  filter: drop-shadow(0 0 26px var(--glow));
+}
+
+.page-transition--covering,
+.page-transition--covered,
+.page-transition--revealing {
+  pointer-events: auto;
+}
+
+.page-transition--covering .page-transition__panel {
+  animation: pt-cover var(--duration-slow) var(--ease-in-out) forwards;
+}
+.page-transition--covering .page-transition__frog {
+  animation: pt-frog-in 520ms var(--ease-bounce) forwards;
+}
+
+.page-transition--covered .page-transition__panel {
+  transform: translateX(0);
+}
+.page-transition--covered .page-transition__frog {
+  opacity: 1;
+  animation: frog-hop 640ms var(--ease-spring) infinite;
+}
+
+.page-transition--revealing .page-transition__panel {
+  transform: translateX(0);
+  animation: pt-reveal var(--duration-slow) var(--ease-in-out) forwards;
+}
+.page-transition--revealing .page-transition__frog {
+  opacity: 1;
+}
+
+@keyframes pt-cover {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes pt-reveal {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes pt-frog-in {
+  0% {
+    opacity: 0;
+    transform: translateY(44px) scale(0.4);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-14px) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
