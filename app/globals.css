@@ -4,14 +4,15 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================================
- * RankedFrogs — "Bright lily-pond" design system. SINGLE SOURCE OF TRUTH.
+ * RankedFrogs — "Playful esports" design system. SINGLE SOURCE OF TRUTH.
  * Re-theming the whole site happens here and nowhere else (spec C2). No raw hex
  * or magic numbers belong in components — everything references a token.
  *
- * The palette is deliberately specific, not the AI-default near-black + acid
- * green (see DESIGN_SYSTEM.md → "Divergence from the default"). Light-first,
- * warm paper, a deep ownable POND green, a CROWN gold pulled straight from the
- * mascot, and a sage neutral ramp. Dark mode is a supported "pond at night".
+ * The palette is a bright "lily-pond" base (warm paper, a deep ownable POND
+ * green, a CROWN gold pulled from the mascot, a sage neutral ramp) PLUS an
+ * ELECTRIC accent for competitive energy. Dark mode is a supported "pond at
+ * night". Motion is springy but strictly transform/opacity — see the motion
+ * section for the hard performance rules.
  * ========================================================================== */
 
 :root {
@@ -21,6 +22,13 @@
   --crown: oklch(0.8 0.132 82); /* secondary accent — gold, from the mascot    */
   --crown-ink: oklch(0.46 0.1 74); /* readable gold for text/icons on paper     */
   --deep-water: oklch(0.26 0.035 172); /* pond depth — footer, dark sections     */
+
+  /* --- Electric accent (energy) — brighter & more saturated than the pond.
+   *     Use SPARINGLY: primary CTA hover/active, focus rings, the "live" price
+   *     pulse, the active segmented segment, target-rank glow. Never body text. */
+  --electric: oklch(0.85 0.23 150); /* vivid electric lime-green                */
+  --electric-strong: oklch(0.72 0.21 152); /* legible electric — edges, focus  */
+  --glow: color-mix(in oklch, var(--electric) 60%, transparent); /* box-shadow  */
 
   /* --- Sage neutral ramp (warm-green tinted, never pure gray) ------------- */
   --paper: oklch(0.985 0.008 135); /* app background — warm lily-pond daylight   */
@@ -56,7 +64,7 @@
 
   --border: var(--sage-line);
   --input: var(--sage-line-strong);
-  --ring: oklch(0.55 0.14 153);
+  --ring: var(--electric-strong); /* electric focus ring — energy on every control */
 
   --radius: 0.75rem;
 
@@ -87,11 +95,15 @@
   --elevation-lg: 0 18px 44px -16px oklch(0.24 0.03 168 / 0.24);
   --elevation-pad: 0 3px 0 0 var(--pond-deep); /* the "lily-pad lift" edge      */
 
-  /* --- Motion tokens (also the source for Phase D animation slots) ------- */
+  /* --- Motion tokens ------------------------------------------------------
+   * Playful esports: springy, alive, never slow (120–360ms). See the keyframes
+   * + slots below. HARD PERFORMANCE RULE: animate transform + opacity ONLY. */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-ripple: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* gentle overshoot — press/hover */
+  --ease-bounce: cubic-bezier(0.22, 1.4, 0.4, 1); /* livelier — celebrations, total pop */
   --duration-fast: 130ms;
   --duration-base: 220ms;
   --duration-slow: 360ms;
@@ -119,7 +131,10 @@
   --accent-foreground: oklch(0.26 0.05 78);
   --border: oklch(0.96 0.02 150 / 0.12);
   --input: oklch(0.96 0.02 150 / 0.18);
-  --ring: oklch(0.72 0.16 152);
+  --electric: oklch(0.88 0.25 150); /* brighter on deep water                    */
+  --electric-strong: oklch(0.82 0.23 151);
+  --glow: color-mix(in oklch, var(--electric) 80%, transparent); /* stronger glow */
+  --ring: var(--electric-strong);
   --elevation-sm: 0 1px 2px -1px oklch(0 0 0 / 0.4);
   --elevation-md: 0 6px 20px -8px oklch(0 0 0 / 0.5);
   --elevation-lg: 0 18px 44px -16px oklch(0 0 0 / 0.6);
@@ -144,6 +159,8 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-electric: var(--electric);
+  --color-electric-strong: var(--electric-strong);
   --color-crown: var(--crown);
   --color-crown-ink: var(--crown-ink);
   --color-deep-water: var(--deep-water);
@@ -166,9 +183,10 @@
   --color-rank-grandmaster: var(--rank-grandmaster);
   --color-rank-celestial: var(--rank-celestial);
 
-  /* Typography (spec C3) — display + body + mono, none of them Inter/Geist/
-   * Roboto. Font vars are injected by next/font in the root layout. */
-  --font-display: var(--font-fraunces), Georgia, serif;
+  /* Typography — bold geometric display (Space Grotesk), humanist body (Hanken
+   * Grotesk), tabular mono (Spline Sans Mono). Font vars injected by next/font. */
+  --font-display: var(--font-space-grotesk), var(--font-hanken), ui-sans-serif, system-ui,
+    sans-serif;
   --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-spline-mono), ui-monospace, monospace;
 
@@ -184,6 +202,8 @@
 
   --ease-standard: var(--ease-standard);
   --ease-out: var(--ease-out);
+  --ease-spring: var(--ease-spring);
+  --ease-bounce: var(--ease-bounce);
 }
 
 @layer base {
@@ -206,13 +226,14 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Display face for headings — set once, not per-component. */
+  /* Display face for headings — Space Grotesk, tight + bold (competitive). Set
+   * once, not per-component; Tailwind weight/tracking utilities still override. */
   h1,
   h2,
   h3 {
     font-family: var(--font-display);
-    font-optical-sizing: auto;
-    letter-spacing: -0.015em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 
   /* Prices/data use tabular mono figures everywhere. */
@@ -267,7 +288,14 @@
   }
 }
 
-/* --- Signature motion: the pond ripple (spec C4/D — one moment, quiet else) - */
+/* ============================================================================
+ * Motion — playful esports. Springy, alive, ripples and hops on water.
+ * HARD PERFORMANCE RULES (do not regress): animate transform + opacity ONLY (no
+ * width/height/top/left, no box-shadow spread, no filter on scroll); glows are a
+ * pre-set colored box-shadow whose OPACITY animates (never the shadow itself);
+ * scroll reveals use native animation-timeline: view() (no JS listeners); and
+ * reduced motion is honored globally (above) — every motion collapses to its end.
+ * ========================================================================== */
 @keyframes pond-ripple {
   0% {
     transform: scale(0.4);
@@ -290,6 +318,18 @@
   }
 }
 
+/* Springy rise — hero, price lines, chat messages (overshoot via --ease-spring). */
+@keyframes rise-spring {
+  0% {
+    transform: translateY(14px) scale(0.98);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 @keyframes crown-bob {
   0%,
   100% {
@@ -300,12 +340,93 @@
   }
 }
 
+/* The mascot HOP — squash, spring up, land. Needs transform-origin: bottom center. */
+@keyframes frog-hop {
+  0% {
+    transform: translateY(0) scaleX(1) scaleY(1);
+  }
+  18% {
+    transform: translateY(0) scaleX(1.1) scaleY(0.86);
+  }
+  50% {
+    transform: translateY(-10px) scaleX(0.94) scaleY(1.1);
+  }
+  78% {
+    transform: translateY(0) scaleX(1.06) scaleY(0.94);
+  }
+  100% {
+    transform: translateY(0) scaleX(1) scaleY(1);
+  }
+}
+
+/* Celebration — a double hop for price locks and rank-ups. */
+@keyframes frog-celebrate {
+  0% {
+    transform: translateY(0) scaleY(1);
+  }
+  14% {
+    transform: translateY(-12px) scaleX(0.9) scaleY(1.12);
+  }
+  32% {
+    transform: translateY(0) scaleX(1.1) scaleY(0.9);
+  }
+  52% {
+    transform: translateY(-7px) scaleX(0.96) scaleY(1.06);
+  }
+  74% {
+    transform: translateY(0) scaleX(1.05) scaleY(0.95);
+  }
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+/* Crown sparkle — opacity + scale only, fired on celebrate. */
+@keyframes crown-sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+/* Idle blink — briefly collapse the eyes (scaleY), on a rare interval. */
+@keyframes mascot-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* Electric "live" glow — OPACITY ONLY (the colored box-shadow is pre-set). */
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* A confident spring pop when the price total recalculates. */
 @keyframes total-pop {
   0% {
     transform: scale(1);
   }
-  30% {
-    transform: scale(1.06);
+  35% {
+    transform: scale(1.12);
   }
   100% {
     transform: scale(1);
@@ -328,35 +449,65 @@
 
 /* ---------------------------------------------------------------------------
  * Motion slots (spec D3). Each animatable spot's DEFAULT motion is one class
- * here, named to its slot ID in lib/motion.ts, so Claude Design output can
- * replace it in ONE place without touching the component. The global
- * reduced-motion rule above collapses these to their end state; the scroll-
- * driven reveal is additionally gated behind prefers-reduced-motion.
+ * here, named to its slot ID in lib/motion.ts, so the design can be swapped in
+ * ONE place without touching the component. The global reduced-motion rule
+ * collapses these to their end state; the scroll-driven reveal is additionally
+ * gated behind prefers-reduced-motion.
  * ------------------------------------------------------------------------- */
 @layer components {
   .motion-hero-enter {
-    animation: lily-rise var(--duration-slow) var(--ease-out) both;
+    animation: rise-spring var(--duration-slow) var(--ease-spring) both;
   }
   .motion-line-enter {
-    animation: lily-rise var(--duration-base) var(--ease-out) both;
+    animation: rise-spring var(--duration-base) var(--ease-spring) both;
   }
   .motion-total-pop {
-    animation: total-pop var(--duration-base) var(--ease-standard);
+    animation: total-pop var(--duration-base) var(--ease-bounce);
     transform-origin: right center;
   }
   /* order.status-change — badge remounts (keyed by status) and pops in. */
   .motion-status-change {
-    animation: status-pop var(--duration-base) var(--ease-out) both;
+    animation: status-pop var(--duration-base) var(--ease-spring) both;
   }
   /* chat.message-enter — a new message rises into the thread. */
   .motion-message-enter {
-    animation: lily-rise var(--duration-base) var(--ease-out) both;
+    animation: rise-spring var(--duration-base) var(--ease-out) both;
   }
+
+  /* The crowned frog — a recurring character. Hop on hover/group-hover, a rare
+   * idle blink on the eyes, and a celebrate burst on price-lock / rank-up. All
+   * transform/opacity, all gated by the global reduced-motion rule. */
+  .motion-frog {
+    transform-origin: bottom center;
+    will-change: transform;
+  }
+  .group:hover .motion-frog-hop,
+  .motion-frog-hop:hover {
+    animation: frog-hop var(--duration-slow) var(--ease-spring);
+  }
+  .motion-frog-celebrate {
+    animation: frog-celebrate 620ms var(--ease-bounce);
+    transform-origin: bottom center;
+  }
+  .motion-crown-sparkle {
+    animation: crown-sparkle 620ms var(--ease-out);
+  }
+  .motion-mascot-blink {
+    animation: mascot-blink 5.2s var(--ease-standard) infinite;
+    transform-origin: center;
+  }
+
+  /* Electric "live" glow — a pre-set colored box-shadow that pulses OPACITY only.
+   * Put on a pseudo/overlay element behind the live thing; never animates spread. */
+  .motion-live-pulse {
+    animation: live-pulse var(--duration-slower) var(--ease-in-out) infinite;
+  }
+
   /* section.reveal — rises as it scrolls into view, where supported. */
   @supports (animation-timeline: view()) {
     @media (prefers-reduced-motion: no-preference) {
       .motion-reveal {
-        animation: lily-rise linear both;
+        animation: rise-spring linear both;
         animation-timeline: view();
         animation-range: entry 5% cover 18%;
       }

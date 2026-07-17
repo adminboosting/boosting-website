@@ -25,10 +25,26 @@ export const FROG_SVG_MARKUP = `<svg viewBox="0 0 48 48" width="100%" height="10
   <path d="M15 31 Q24 38 33 31" stroke="#24603F" stroke-width="2" stroke-linecap="round" fill="none"/>
 </svg>`;
 
-export function FrogMascot({ className, size = 28 }: { className?: string; size?: number }) {
+import { cn } from "@/lib/utils";
+
+/**
+ * The crowned frog is a recurring character. Pass `hop` to make it spring on
+ * hover (or when an ancestor with `.group` is hovered), or add a motion class
+ * via `className` (e.g. `motion-frog-celebrate` on a price lock). All motion is
+ * transform/opacity and collapses under prefers-reduced-motion.
+ */
+export function FrogMascot({
+  className,
+  size = 28,
+  hop = false,
+}: {
+  className?: string;
+  size?: number;
+  hop?: boolean;
+}) {
   return (
     <span
-      className={className}
+      className={cn("motion-frog", hop && "motion-frog-hop", className)}
       role="img"
       aria-label="RankedFrogs frog mascot"
       style={{ display: "inline-flex", width: size, height: size, flexShrink: 0 }}

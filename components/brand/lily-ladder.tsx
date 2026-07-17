@@ -39,12 +39,17 @@ export function LilyLadder({
             className="group relative flex items-center"
             style={{ marginInlineStart: `calc(var(--spacing) * ${i * 3})` }}
           >
-            {/* the pad */}
+            {/* the pad — the top (goal) pad glows electric */}
             <div
-              className="relative flex items-center gap-2.5 rounded-full border py-1.5 pl-2.5 pr-4 shadow-sm transition-transform duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:-translate-y-0.5"
+              className="relative flex items-center gap-2.5 rounded-full border py-1.5 pl-2.5 pr-4 shadow-sm transition-transform duration-[var(--duration-base)] ease-[var(--ease-spring)] group-hover:-translate-y-0.5"
               style={{
                 background: "color-mix(in oklch, var(--rung-hue) 14%, var(--card))",
-                borderColor: "color-mix(in oklch, var(--rung-hue) 35%, transparent)",
+                borderColor: isTop
+                  ? "color-mix(in oklch, var(--electric-strong) 55%, transparent)"
+                  : "color-mix(in oklch, var(--rung-hue) 35%, transparent)",
+                boxShadow: isTop
+                  ? "0 0 0 1.5px var(--electric-strong), 0 8px 26px -8px var(--glow)"
+                  : undefined,
                 // @ts-expect-error CSS custom property
                 "--rung-hue": rung.colorVar,
               }}
@@ -63,7 +68,7 @@ export function LilyLadder({
               {crown && isTop && (
                 <FrogMascot
                   size={30}
-                  className="absolute -right-2 -top-6 motion-safe:animate-[crown-bob_3s_var(--ease-in-out)_infinite]"
+                  className="absolute -right-2 -top-6 motion-safe:animate-[crown-bob_3s_var(--ease-in-out)_infinite] motion-frog-hop"
                 />
               )}
             </div>

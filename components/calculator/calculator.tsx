@@ -8,6 +8,7 @@ import type { Quote } from "@/lib/pricing/types";
 import { formatUsdFromCents } from "@/lib/money";
 import { motion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { FrogMascot } from "@/components/brand/frog-mascot";
 import { Button } from "@/components/ui/button";
 
 /** sessionStorage key the checkout page reads the pending QuoteRequest from. */
@@ -418,8 +419,22 @@ function PricePanel({
   return (
     <div className="rounded-xl border border-border bg-card/70 p-5">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Your price</h3>
-        {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+        <h3 className="flex items-center gap-2 font-semibold">
+          Your price
+          {/* live electric pulse — the price is priced in real time. Opacity-only. */}
+          <span
+            aria-hidden
+            className="motion-live-pulse inline-block size-1.5 rounded-full"
+            style={{ background: "var(--electric-strong)", boxShadow: "0 0 8px 1px var(--glow)" }}
+          />
+        </h3>
+        <div className="flex items-center gap-2">
+          {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+          {/* the crowned frog reacts (a little celebrate) each time the price settles */}
+          {quote && !error && (
+            <FrogMascot key={quote.totalCents} size={22} className="motion-frog-celebrate" />
+          )}
+        </div>
       </div>
 
       {error && (
@@ -659,9 +674,9 @@ function ChipGroup<T extends string | number>({
             type="button"
             onClick={() => onChange(o.value)}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-sm transition-colors",
+              "rounded-md border px-3 py-1.5 text-sm transition-[colors,transform] duration-[var(--duration-fast)] ease-[var(--ease-spring)] active:scale-95",
               value === o.value
-                ? "border-primary bg-primary/15 text-foreground"
+                ? "border-electric-strong bg-electric/12 text-foreground"
                 : "border-border text-muted-foreground hover:bg-secondary/40",
             )}
           >
@@ -691,8 +706,10 @@ function ModeCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-lg border p-4 text-left transition-colors",
-        active ? "border-primary bg-primary/5" : "border-border hover:bg-secondary/40",
+        "rounded-lg border p-4 text-left transition-[colors,transform] duration-[var(--duration-fast)] ease-[var(--ease-spring)] active:scale-[0.98]",
+        active
+          ? "border-primary bg-primary/5 shadow-[0_0_0_1px_var(--electric-strong)]"
+          : "border-border hover:bg-secondary/40",
       )}
     >
       <span className="flex items-center justify-between">

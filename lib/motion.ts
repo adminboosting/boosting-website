@@ -151,4 +151,10 @@ export const motion = {
   loadingSkeleton: "animate-pulse",
   statusChange: "motion-status-change",
   messageEnter: "motion-message-enter",
+  // Playful-esports character + energy (all transform/opacity, reduced-motion safe).
+  frogHop: "motion-frog-hop", // hops on hover / group-hover
+  frogCelebrate: "motion-frog-celebrate", // double-hop burst on price-lock / rank-up
+  crownSparkle: "motion-crown-sparkle",
+  mascotBlink: "motion-mascot-blink",
+  livePulse: "motion-live-pulse", // electric glow overlay, opacity-only pulse
 } as const;

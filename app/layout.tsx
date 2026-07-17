@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
-import { Fraunces, Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
+import { Hanken_Grotesk, Space_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { BRAND_NAME, BRAND_TAGLINE, getSiteUrl } from "@/lib/config";
 import "./globals.css";
 
-// Type system (spec C3): a characterful editorial display (Fraunces), a warm
-// humanist body (Hanken Grotesk), and a precise mono for prices (Spline Sans
-// Mono). None are Inter/Geist/Roboto. All SIL OFL, self-hosted by next/font.
-const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
+// Type system: a bold geometric/technical display (Space Grotesk — reads as
+// competitive gaming), a warm humanist body (Hanken Grotesk), and a precise mono
+// for prices (Spline Sans Mono). All SIL OFL, self-hosted by next/font with
+// display: swap (no layout shift, no render-blocking).
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
 const hanken = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-hanken", display: "swap" });
 const splineMono = Spline_Sans_Mono({
   subsets: ["latin"],
@@ -53,7 +58,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${hanken.variable} ${splineMono.variable}`}
+      className={`${spaceGrotesk.variable} ${hanken.variable} ${splineMono.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-dvh bg-background text-foreground antialiased">
