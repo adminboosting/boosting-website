@@ -4,17 +4,18 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FrogMascot } from "@/components/brand/frog-mascot";
 
 /**
- * "The Climb" — the signature element: a full-width, page-integrated DIAGONAL
- * rank ladder (low-left → high-right). The crowned frog climbs it on load, one
- * tier at a time, settles back at the base, then LEAPS to whichever tier you
- * hover (which lights electric and shows a "from $X" hint).
+ * "The Climb" ladder — a diagonal rank ladder (low-left → high-right). On first
+ * mount the crowned frog climbs it one tier at a time (a slow, choreographed
+ * intro that also drives side-content reveals via `onStep`), then rests at the
+ * base. Hovering a tier makes the frog LEAP there and reveal a "from $X" hint;
+ * the frog STAYS on the last-hovered tier (it does not snap back), so sweeping
+ * across tiers reads as a calm series of leaps.
  *
- * Ported from the RankedFrogs Design System (Claude Design). Motion is
- * transform + opacity only; glows animate the opacity of a pre-set box-shadow;
- * frog positions are measured in JS (ResizeObserver, no scroll listeners); under
- * prefers-reduced-motion the climb/leaps are skipped (frog rests at the base) but
- * the electric highlight + hint still work. The `.rf-climb*` styles + keyframes
- * live in app/globals.css (single source of truth), not injected at runtime.
+ * Motion is transform + opacity only; glows animate the opacity of a pre-set
+ * box-shadow; frog positions are measured in JS (ResizeObserver, no scroll
+ * listeners). Under prefers-reduced-motion the climb/leaps are skipped (frog
+ * rests at the base) but the highlight + hint still work. The `.rf-climb*`
+ * styles live in app/globals.css.
  */
 export interface LilyRung {
   label: string;
@@ -39,10 +40,16 @@ const KNOWN_TIERS = [
   "celestial",
 ];
 
-/** Map a tier name to its rank-color CSS variable (falls back to the pond). */
+/** Map a tier name to its rank-color CSS variable (falls back to the primary). */
 export function tierColorVar(tier: string): string {
   const key = String(tier || "").toLowerCase();
-  if (key.includes("challenger") || key.includes("radiant") || key.includes("champion")) {
+  if (
+    key.includes("challenger") ||
+    key.includes("radiant") ||
+    key.includes("champion") ||
+    key.includes("one above all") ||
+    key.includes("eternity")
+  ) {
     return "var(--rank-celestial)";
   }
   const match = KNOWN_TIERS.find((k) => key.includes(k));
@@ -68,17 +75,34 @@ export function LilyLadder({
   crown = true,
   interactive = true,
   className = "",
+  onStep,
+  onReady,
 }: {
   rungs?: LilyRung[];
   crown?: boolean;
   interactive?: boolean;
   className?: string;
+  /** Fired as the intro climb reaches each step (0-based) — drives reveals. */
+  onStep?: (step: number) => void;
+  /** Fired once the intro climb has settled and hover is enabled. */
+  onReady?: () => void;
 }) {
   const items = rungs && rungs.length ? rungs : DEFAULT_RUNGS;
   const last = items.length - 1;
   const contRef = useRef<HTMLDivElement>(null);
   const pipRefs = useRef<(HTMLElement | null)[]>([]);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const climbedRef = useRef(false);
+  // Keep the latest callbacks in refs so the once-only climb effect never
+  // re-runs just because a parent re-rendered with new closures. Assigned in an
+  // effect (not during render) to satisfy the rules-of-hooks lint.
+  const onStepRef = useRef(onStep);
+  const onReadyRef = useRef(onReady);
+  useEffect(() => {
+    onStepRef.current = onStep;
+    onReadyRef.current = onReady;
+  });
+
   const [pips, setPips] = useState<{ x: number; y: number }[]>([]);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [target, setTarget] = useState(0);
@@ -90,8 +114,9 @@ export function LilyLadder({
   const reduced =
     typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Measure the center of each tier's pip (relative to the container) so the frog
-  // can be positioned by transform. Re-measure on resize — no scroll listeners.
+  // Measure the center of each tier's pip (relative to the container) so the
+  // frog can be positioned by transform. Re-measures on resize AND whenever the
+  // ladder changes (game switch) — no scroll listeners.
   useLayoutEffect(() => {
     const measure = () => {
       const c = contRef.current;
@@ -113,29 +138,41 @@ export function LilyLadder({
     return () => ro?.disconnect();
   }, [items.length]);
 
-  // Load-climb: hop bottom → top, "ta-da" at the top, then settle back at the base.
+  // Intro climb — runs ONCE (climbedRef). Slow, choreographed: hop bottom → top,
+  // firing onStep at each tier, a "ta-da" at the summit, then settle at the base.
+  // A game switch remeasures (above) but does not replay this.
   useEffect(() => {
-    if (pips.length !== items.length) return;
+    if (climbedRef.current) return;
+    if (pips.length !== items.length || items.length === 0) return;
+    climbedRef.current = true;
     const T = timers.current;
+
+    const finish = () => {
+      setReady(true);
+      onReadyRef.current?.();
+    };
+
     if (reduced || !crown || !interactive) {
-      // No climb: rest at the base and enable hover on the next tick. Deferred
-      // via a timer (not a synchronous setState) so we don't cascade renders.
       T.push(
         setTimeout(() => {
           setTarget(0);
-          setReady(true);
+          // Reveal everything at once when we're not animating the climb.
+          for (let i = 0; i <= last; i += 1) onStepRef.current?.(i);
+          finish();
         }, 0),
       );
       return;
     }
+
     let i = 0;
     const step = () => {
       if (i <= last) {
         setTarget(i);
         setKind("hop");
         setHopSeq((s) => s + 1);
+        onStepRef.current?.(i);
         i += 1;
-        T.push(setTimeout(step, 380));
+        T.push(setTimeout(step, 560));
       } else {
         setCelebrate(true);
         T.push(
@@ -144,12 +181,12 @@ export function LilyLadder({
             setTarget(0);
             setKind("hop");
             setHopSeq((s) => s + 1);
-            setReady(true);
-          }, 820),
+            finish();
+          }, 900),
         );
       }
     };
-    T.push(setTimeout(step, 420));
+    T.push(setTimeout(step, 500));
     return () => {
       T.forEach(clearTimeout);
       timers.current = [];
@@ -164,15 +201,12 @@ export function LilyLadder({
     setKind("leap");
     setHopSeq((s) => s + 1);
   };
-  const leave = () => {
-    setActive(null);
-    if (reduced || !ready || !interactive || !crown) return;
-    setTarget(0);
-    setKind("hop");
-    setHopSeq((s) => s + 1);
-  };
+  // Persistence: leaving only hides the hint — the frog STAYS where it last
+  // leapt (no snap-back to the base).
+  const leave = () => setActive(null);
 
-  const p = pips[Math.min(target, pips.length - 1)];
+  const clampedTarget = Math.min(target, Math.max(0, pips.length - 1));
+  const p = pips[clampedTarget];
   const fx = p ? p.x - 17 : 0;
   const fy = p ? p.y - 40 : 0;
   const first = pips[0];
@@ -240,7 +274,7 @@ export function LilyLadder({
       })}
 
       {hintP && activeItem && (
-        <div className="rf-climb-hint" style={{ left: hintP.x, top: hintP.y - 26 }}>
+        <div className="rf-climb-hint" style={{ left: hintP.x, top: hintP.y - 30 }}>
           <div className="t">{activeItem.label}</div>
           <div className="p">
             {activeItem.price ? `from ${activeItem.price} / division` : "Custom quote"}

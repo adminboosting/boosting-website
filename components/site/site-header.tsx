@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { AccountMenu } from "@/components/site/account-menu";
 import { MobileNav } from "@/components/site/mobile-nav";
+import { ThemeToggle } from "@/components/site/theme-toggle";
 
 const NAV_LINKS = [
   { href: "/games", label: "Games" },
@@ -31,6 +32,7 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-1.5 md:gap-2">
+          <ThemeToggle />
           <AccountMenu />
           <MobileNav links={NAV_LINKS} />
         </div>

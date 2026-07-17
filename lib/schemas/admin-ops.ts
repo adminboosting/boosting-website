@@ -64,6 +64,7 @@ export const SITE_SETTING_KEYS = [
   "pricing_reviewed",
   "pricing_placeholder_note",
   "pricing_settings",
+  "booster_availability",
 ] as const;
 
 /**
@@ -77,6 +78,13 @@ export const siteSettingSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("support_email"), value: z.email().max(254) }),
   z.object({ key: z.literal("pricing_placeholder_note"), value: z.string().trim().max(500) }),
   z.object({ key: z.literal("pricing_settings"), value: z.record(z.string(), z.unknown()) }),
+  z.object({
+    key: z.literal("booster_availability"),
+    value: z.object({
+      mode: z.enum(["manual", "live"]),
+      counts: z.record(z.string(), z.number().int().min(0).max(9999)),
+    }),
+  }),
 ]);
 
 export type CouponInput = z.infer<typeof couponSchema>;

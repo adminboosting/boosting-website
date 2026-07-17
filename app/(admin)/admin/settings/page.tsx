@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { setPricingReviewed } from "@/app/(admin)/admin/settings/actions";
+import { BoosterAvailabilityForm } from "@/app/(admin)/admin/settings/booster-availability-form";
 import { SettingForm } from "@/app/(admin)/admin/settings/setting-form";
 import { AdminActionButton } from "@/components/admin/admin-action-button";
 import { requireAdmin } from "@/lib/auth/session";
+import {
+  DEFAULT_BOOSTER_AVAILABILITY_CONFIG,
+  getLiveBoosterCounts,
+  parseConfig,
+  sumPerGame,
+} from "@/lib/boosters/availability";
+import { GAMES } from "@/lib/catalog/data";
 import { isServiceRoleConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -67,6 +75,18 @@ export default async function AdminSettingsPage() {
   const pricingReviewed = byKey.get("pricing_reviewed")?.value === true;
   const serviceRoleReady = isServiceRoleConfigured();
 
+  // Booster availability: current config + what live tracking would report.
+  const boosterConfig = byKey.has("booster_availability")
+    ? parseConfig(byKey.get("booster_availability")?.value)
+    : DEFAULT_BOOSTER_AVAILABILITY_CONFIG;
+  const liveCounts = await getLiveBoosterCounts();
+  const boosterGames = GAMES.map((game) => ({
+    slug: game.slug,
+    name: game.name,
+    manual: boosterConfig.counts[game.slug] ?? 0,
+    live: liveCounts ? (liveCounts[game.slug] ?? 0) : null,
+  }));
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
@@ -113,6 +133,15 @@ export default async function AdminSettingsPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="mt-8 space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Booster availability</h2>
+        <BoosterAvailabilityForm
+          initialMode={boosterConfig.mode}
+          games={boosterGames}
+          liveTotal={liveCounts ? sumPerGame(liveCounts) : null}
+        />
       </section>
 
       <section className="mt-8 space-y-4">

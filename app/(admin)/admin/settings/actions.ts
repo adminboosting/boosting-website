@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { AdminActionState } from "@/app/(admin)/admin/orders/actions";
 import { requireAdmin, type SessionContext } from "@/lib/auth/session";
 import { allMoneyPagePaths } from "@/lib/catalog/content";
+import { GAMES } from "@/lib/catalog/data";
 import {
   SITE_SETTING_KEYS,
   siteSettingSchema,
@@ -136,6 +137,41 @@ export async function saveSiteSetting(
   const parsed = siteSettingSchema.safeParse({ key, value });
   if (!parsed.success) {
     return { ok: false, error: `Invalid value for ${key} — check the format and try again.` };
+  }
+  return persistSetting(session, parsed.data);
+}
+
+/**
+ * Booster availability editor: a structured form (mode + one number per game)
+ * rather than raw JSON, so the non-technical owner can maintain the counts that
+ * show across the site (the climb, etc.). In "live" mode the stored counts are
+ * ignored and numbers come from real booster_profiles.
+ */
+export async function saveBoosterAvailability(
+  _prev: SettingFormState,
+  formData: FormData,
+): Promise<SettingFormState> {
+  // Identity first — outside any try/catch (redirect throws NEXT_REDIRECT).
+  const session = await requireAdmin();
+
+  if (!isServiceRoleConfigured()) {
+    return { ok: false, error: "Settings can't be changed on this deployment yet." };
+  }
+
+  const mode = formData.get("mode") === "live" ? "live" : "manual";
+  const counts: Record<string, number> = {};
+  for (const game of GAMES) {
+    const raw = formData.get(`count_${game.slug}`);
+    const n = typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN;
+    if (Number.isFinite(n) && n >= 0) counts[game.slug] = n;
+  }
+
+  const parsed = siteSettingSchema.safeParse({
+    key: "booster_availability",
+    value: { mode, counts },
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Enter a whole number (0 or more) for each game." };
   }
   return persistSetting(session, parsed.data);
 }

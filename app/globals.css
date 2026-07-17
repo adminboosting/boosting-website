@@ -224,6 +224,34 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Warm cream → gold page wash (light mode): two soft gold blooms up top and
+       a gentle warm tint carried down the whole page. Layered over
+       bg-background's color (not replacing it). Sized to cover the full document
+       — deliberately NOT background-attachment:fixed, which forces a full repaint
+       on every scroll frame (jank); a normal background is GPU-cheap. */
+    background-image:
+      radial-gradient(
+        1100px 620px at 12% -6%,
+        color-mix(in oklch, var(--crown) 20%, transparent),
+        transparent 58%
+      ),
+      radial-gradient(
+        1000px 680px at 108% 3%,
+        color-mix(in oklch, var(--rank-gold) 15%, transparent),
+        transparent 55%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--crown) 8%, transparent),
+        color-mix(in oklch, var(--crown) 3%, transparent) 45%,
+        transparent
+      );
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+  }
+  /* Dark mode keeps the flat night-pond background — no warm wash. */
+  html.dark body {
+    background-image: none;
   }
 
   /* Display face for headings — Space Grotesk, tight + bold (competitive). Set
@@ -617,17 +645,19 @@
 .rf-climb {
   position: relative;
   width: 100%;
-  height: clamp(340px, 34vw, 470px);
-  --pad-x: 4%;
-  --hspread: 64%;
-  --pad-y: 9%;
-  --vspread: 80%;
+  height: clamp(480px, 48vw, 560px);
+  --pad-x: 20%;
+  --hspread: 60%;
+  --pad-y: 7%;
+  --vspread: 86%;
+  --plate-w: 158px;
 }
-@media (max-width: 680px) {
+@media (max-width: 1023px) {
   .rf-climb {
-    height: clamp(430px, 92vw, 580px);
-    --hspread: 26%;
-    --pad-x: 5%;
+    height: clamp(440px, 108vw, 580px);
+    --pad-x: 22%;
+    --hspread: 56%;
+    --plate-w: 138px;
   }
 }
 .rf-climb-trail {
@@ -660,11 +690,13 @@
   position: absolute;
   left: calc(var(--pad-x) + var(--i) * (var(--hspread) / var(--n)));
   bottom: calc(var(--pad-y) + var(--i) * (var(--vspread) / var(--n)));
-  transform: translateY(50%);
+  transform: translate(-50%, 50%);
+  width: var(--plate-w);
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 5px 15px 5px 8px;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
   border-radius: 999px;
   border: 1px solid;
   box-shadow: var(--shadow-sm);
@@ -678,8 +710,9 @@
 }
 .rf-climb-node:hover,
 .rf-climb-node:focus-visible {
-  transform: translateY(50%) scale(1.06);
+  transform: translate(-50%, 50%) scale(1.06);
   outline: none;
+  z-index: 5;
 }
 .rf-climb-node[data-active="true"] {
   border-color: var(--electric-strong) !important;
@@ -704,16 +737,18 @@
   flex-shrink: 0;
 }
 .rf-climb-node .lab {
-  font-size: 0.875rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-@media (max-width: 680px) {
+@media (max-width: 1023px) {
   .rf-climb-node .lab {
     font-size: 0.75rem;
   }
   .rf-climb-node {
-    padding: 4px 11px 4px 7px;
+    padding: 6px 10px;
   }
 }
 .rf-climb-hint {

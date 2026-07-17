@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Coins, Gamepad2, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { LilyLadder } from "@/components/brand/lily-ladder";
+import { ClimbShowcase, type ClimbCard, type ClimbGame } from "@/components/brand/climb-showcase";
+import { getBoosterAvailability } from "@/lib/boosters/availability";
 import { getGames, getRanks } from "@/lib/catalog/source";
 import { SERVICES } from "@/lib/catalog/content";
 import { BRAND_NAME } from "@/lib/config";
 import { formatUsdFromCents } from "@/lib/money";
+import { getPublishedReviews } from "@/lib/reviews/public";
 import { motion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -15,20 +17,6 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
-
-// The full League ladder for the signature "climb" — Iron up to the crowned top.
-const CLIMB_TIERS = [
-  "Iron",
-  "Bronze",
-  "Silver",
-  "Gold",
-  "Platinum",
-  "Emerald",
-  "Diamond",
-  "Master",
-  "Grandmaster",
-  "Challenger",
-];
 
 const GAME_ACCENT: Record<string, string> = {
   "league-of-legends": "text-rank-gold",
@@ -57,18 +45,79 @@ const STEPS = [
 
 export default async function HomePage() {
   const games = await getGames();
+  const availability = await getBoosterAvailability();
+  const gameName = new Map<string, string>(games.map((g) => [g.slug, g.name]));
 
-  // Real per-division "from" prices for the climb, straight from the LoL catalog.
-  // The crowned top tiers (Master/Grandmaster/Challenger) are custom-quote (0).
-  const lolRanks = await getRanks("league-of-legends");
-  const perDivisionByTier = new Map<string, number>();
-  for (const r of lolRanks) {
-    if (!perDivisionByTier.has(r.tier)) perDivisionByTier.set(r.tier, r.climbPriceCents);
-  }
-  const climbRungs = CLIMB_TIERS.map((tier) => {
-    const cents = perDivisionByTier.get(tier) ?? 0;
-    return { label: tier, price: cents > 0 ? formatUsdFromCents(cents) : null };
-  });
+  // Per-game climb data: each game's real ladder (tier + per-division "from"
+  // price, straight from the catalog), its available-booster count, and its
+  // cheapest starting price. Colors are derived client-side from the labels.
+  const climbGames: ClimbGame[] = await Promise.all(
+    games.map(async (game) => {
+      const ranks = await getRanks(game.slug);
+      const seen = new Set<string>();
+      const rungs: ClimbGame["rungs"] = [];
+      let minCents = Number.POSITIVE_INFINITY;
+      for (const r of ranks) {
+        if (!seen.has(r.tier)) {
+          seen.add(r.tier);
+          const cents = r.isPurchasable ? r.climbPriceCents : 0;
+          rungs.push({ label: r.tier, price: cents > 0 ? formatUsdFromCents(cents) : null });
+        }
+        if (r.isPurchasable && r.climbPriceCents > 0) minCents = Math.min(minCents, r.climbPriceCents);
+      }
+      return {
+        slug: game.slug,
+        name: game.name,
+        shortName: game.shortName,
+        rungs,
+        boosterCount: availability.perGame[game.slug] ?? 0,
+        fromPrice: Number.isFinite(minCents) ? formatUsdFromCents(minCents) : null,
+      };
+    }),
+  );
+
+  // Real content revealed alongside the climb — published reviews first, then a
+  // curated mix of trust facts, FAQ answers, and a process step (all real copy).
+  const reviewCards: ClimbCard[] = (await getPublishedReviews(6))
+    .filter((r) => r.body.trim().length > 0)
+    .slice(0, 2)
+    .map((r) => ({
+      kind: "review",
+      heading: r.displayName,
+      body: r.body,
+      rating: r.rating,
+      note: r.gameSlug ? gameName.get(r.gameSlug) : undefined,
+    }));
+
+  const climbCards: ClimbCard[] = [
+    ...reviewCards,
+    {
+      kind: "trust",
+      heading: "Encrypted account handling",
+      body: "Logins are encrypted in transit and at rest, decryptable only by your booster, and auto-deleted when the order completes.",
+    },
+    {
+      kind: "faq",
+      heading: "Is boosting safe?",
+      body: "100% manual play, region-matched connections, appear-offline by default, and no third-party tools.",
+    },
+    {
+      kind: "step",
+      heading: "Track to completion",
+      body: "Follow live progress and screenshots, chat with your booster anytime, and leave a review at your goal.",
+      note: "03",
+    },
+    {
+      kind: "trust",
+      heading: "Cashback on every order",
+      body: "Earn store credit back on every purchase — stack it with referrals toward your next climb.",
+    },
+    {
+      kind: "faq",
+      heading: "Piloted or duo?",
+      body: "Piloted is fastest — a vetted pro plays for you. Duo keeps you in control, queueing alongside them.",
+    },
+  ];
 
   return (
     <>
@@ -140,18 +189,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* The climb — the signature ladder, full-width and page-integrated (no card) */}
+      {/* The climb — signature ladder with a game selector and rails of real
+          content (booster counts, price, reviews, FAQ, trust) that reveal as the
+          frog ascends. Full-width and page-integrated (no card). */}
       <section
-        aria-labelledby="climb-heading"
-        className={cn("mx-auto w-full max-w-6xl px-6 pb-6", motion.sectionReveal)}
+        aria-label="The climb"
+        className={cn("mx-auto w-full max-w-6xl px-6 pb-6 pt-2", motion.sectionReveal)}
       >
-        <p
-          id="climb-heading"
-          className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground"
-        >
-          The climb
-        </p>
-        <LilyLadder rungs={climbRungs} />
+        <ClimbShowcase games={climbGames} cards={climbCards} />
       </section>
 
       {/* Games */}

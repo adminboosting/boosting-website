@@ -119,10 +119,12 @@ describe("coupons: admin CRUD passes through user-scoped RLS (the deliberate non
 
 describe("site_settings: SELECT-only authenticated grant blocks writes despite the admin policy (grant trap)", () => {
   it("everyone reads settings — anon included (public config)", async () => {
+    // 3 rows: the two keys inserted in beforeAll (pricing_reviewed, brand_name)
+    // plus booster_availability, which migration 0009 seeds.
     expect(
       await count({ kind: "user", userId: ALICE }, "select key from public.site_settings"),
-    ).toBe(2);
-    expect(await count({ kind: "anon" }, "select key from public.site_settings")).toBe(2);
+    ).toBe(3);
+    expect(await count({ kind: "anon" }, "select key from public.site_settings")).toBe(3);
   });
 
   it("an authenticated ADMIN cannot UPDATE or INSERT — the trap the settings actions exist for", async () => {

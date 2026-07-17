@@ -3,6 +3,7 @@ import { Hanken_Grotesk, Space_Grotesk, Spline_Sans_Mono } from "next/font/googl
 import { Analytics } from "@vercel/analytics/next";
 import { BRAND_NAME, BRAND_TAGLINE, getSiteUrl } from "@/lib/config";
 import { PageTransition } from "@/components/site/page-transition";
+import { THEME_INIT_SCRIPT } from "@/components/site/theme-toggle";
 import "./globals.css";
 
 // Type system: a bold geometric/technical display (Space Grotesk — reads as
@@ -63,6 +64,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       suppressHydrationWarning
     >
       <body className="min-h-dvh bg-background text-foreground antialiased">
+        {/* Blocking, first-in-body: sets the .dark class before paint (no flash). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         {children}
         <PageTransition />
         <Analytics />
