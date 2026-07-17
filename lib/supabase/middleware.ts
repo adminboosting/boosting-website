@@ -8,7 +8,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
  * security boundary rule in proxy.ts — every server action, route handler,
  * and layout behind these prefixes re-verifies identity independently.
  */
-const PROTECTED_PREFIXES = ["/account", "/orders", "/checkout", "/admin"];
+const PROTECTED_PREFIXES = ["/account", "/orders", "/checkout", "/admin", "/booster"];
 
 /** Auth pages a signed-in visitor has no business on — send them to /account. */
 const AUTH_PATHS: readonly string[] = ["/login", "/sign-up"];
