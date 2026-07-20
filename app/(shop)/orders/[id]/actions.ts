@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import type { SendMessageResult } from "@/components/chat/order-chat";
+import type { NotifyResult } from "@/components/notifications/notify-button";
 import { requireUser } from "@/lib/auth/session";
 import { storeOrderCredentials } from "@/lib/credentials/store";
+import { createNotification } from "@/lib/notifications/create";
 import type { ChatMessageRow } from "@/lib/realtime/order-chat-channel";
 import { uuidSchema } from "@/lib/schemas/admin-ops";
 import { credentialSubmissionSchema } from "@/lib/schemas/auth";
@@ -157,6 +159,70 @@ export async function markMessagesRead(
     { onConflict: "message_id,user_id", ignoreDuplicates: true },
   );
   return { ok: !error };
+}
+
+/** Ignore repeat pings for the same booster+order inside this window (seconds). */
+const BOOSTER_PING_COOLDOWN_S = 30;
+
+/**
+ * Customer → booster live ping ("Notify booster"). The customer owns the order;
+ * the ping lands as a Realtime INSERT the booster's per-user channel turns into
+ * an audio chime + popup (they're expected to keep the site open).
+ *
+ * Authorization is proven through the USER-SCOPED client — RLS
+ * `orders_select_participants` and `order_assignments_select` only return the
+ * order + its active assignment to a participant, so a non-owner reads null and
+ * gets a calm "unavailable". The actual INSERT is service-role
+ * (createNotification): notifications has no authenticated INSERT grant, so a
+ * customer can never forge a ping — they can only trigger this vetted path.
+ */
+export async function notifyBooster(orderId: string): Promise<NotifyResult> {
+  const user = await requireUser();
+
+  if (!uuidSchema.safeParse(orderId).success) {
+    return { ok: false, error: "Unknown order." };
+  }
+
+  const supabase = await createClient();
+  // Ownership: the ping is the customer's action, so require the order be
+  // theirs (can_access_order also passes assigned boosters/admins — this call
+  // belongs to the owner). A row they can't see reads as null.
+  const { data: orderData } = await supabase
+    .from("orders")
+    .select("id, user_id")
+    .eq("id", orderId)
+    .maybeSingle();
+  const order = orderData as { id: string; user_id: string } | null;
+  if (!order || order.user_id !== user.id) {
+    return { ok: false, error: "Order not found." };
+  }
+
+  // The active booster to ping. order_assignments_select returns this row to
+  // the owner via can_access_order.
+  const { data: assignmentData } = await supabase
+    .from("order_assignments")
+    .select("booster_id")
+    .eq("order_id", orderId)
+    .eq("is_active", true)
+    .maybeSingle();
+  const assignment = assignmentData as { booster_id: string } | null;
+  if (!assignment) {
+    return { ok: false, error: "No booster is assigned to this order yet." };
+  }
+
+  const result = await createNotification({
+    recipientId: assignment.booster_id,
+    actorId: user.id,
+    orderId,
+    kind: "booster_ping",
+    title: "A customer is waiting",
+    body: `The customer on order #${orderId.slice(0, 8)} pinged you — open the order to respond.`,
+    cooldownSeconds: BOOSTER_PING_COOLDOWN_S,
+  });
+  if (!result.ok) return { ok: false, error: "Couldn't notify your booster — try again shortly." };
+  // Cooldown / degraded still reads as success to the customer (the booster was
+  // already pinged moments ago, or in-app delivery isn't configured).
+  return { ok: true, delivered: result.delivered };
 }
 
 /** Returned by submitReview via useActionState. */

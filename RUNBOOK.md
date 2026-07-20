@@ -179,6 +179,34 @@ using its built-in fallback (it re-checks for messages every 15 seconds), and
 the page shows a small "Live updates unavailable" note. Nothing is broken or
 lost — chat still works — but go back to check 1, because Realtime isn't on.
 
+### 🟡 Order notifications — "Notify booster" / "Notify customer"
+
+On an active order both sides get a button to nudge the other party:
+
+- **Customer → "Notify booster":** the booster (expected to keep the site open)
+  hears a chime and sees a popup **instantly** — this rides the same Realtime as
+  chat.
+- **Booster → "Notify customer":** the customer gets an **email** from your
+  RankedFrogs address (they aren't expected to be online), plus the same popup if
+  they happen to be. The email never contains the message text — just "you have a
+  message, open your order."
+
+Two things make this live on the hosted project:
+
+1. **Realtime for the popups.** Migration `0010_notifications.sql` adds a
+   `notifications` table to the `supabase_realtime` publication. After
+   `pnpm db:migrate`, check **Database → Publications → `supabase_realtime`** the
+   same way as chat above — the list must also include **`notifications`**. If the
+   popup/chime never fires, that table isn't published (flip it on there, or
+   re-run the migrate). There is no polling fallback for popups by design — the
+   email still covers the customer.
+2. **Email for "Notify customer".** This uses the same Resend setup as
+   [Email](#-email-phase-2) above. Until `RESEND_API_KEY` is set, the email is
+   **skipped and logged** (the button still succeeds) — so nothing breaks before
+   you're ready. To send for real: verify **rankedfrogs.com** in Resend (add the
+   DNS records), set `RESEND_API_KEY`, and set `EMAIL_FROM` to something like
+   `RankedFrogs <noreply@rankedfrogs.com>` in Vercel.
+
 ### 🟡 Sentry error alerts (optional, anytime)
 - Create a free Sentry project, copy the DSN into `NEXT_PUBLIC_SENTRY_DSN`. That's
   enough for error capture. Source-map upload (`SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,

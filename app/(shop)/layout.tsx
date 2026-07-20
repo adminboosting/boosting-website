@@ -1,13 +1,23 @@
+import { NotificationListener } from "@/components/notifications/notification-listener";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
+import { getSessionProfile } from "@/lib/auth/session";
 
 /**
  * Shared chrome for the signed-in commerce surfaces (/checkout, /account,
  * /orders). Identical shell to the marketing layout so the shop stays inside
  * the lily-pond system; every page in this group is auth-dependent and
  * therefore dynamic — nothing here (or below) sets `revalidate`.
+ *
+ * Mounts the per-user NotificationListener so a customer who is on the site
+ * gets the live popup + chime when their booster hits "Notify customer" (email
+ * remains the reliable channel when they're offline). getSessionProfile()
+ * degrades to null when signed out or in zero-backend mode — the listener
+ * simply isn't rendered.
  */
-export default function ShopLayout({ children }: { children: React.ReactNode }) {
+export default async function ShopLayout({ children }: { children: React.ReactNode }) {
+  const session = await getSessionProfile();
+
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -21,6 +31,7 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
         {children}
       </main>
       <SiteFooter />
+      {session && <NotificationListener userId={session.user.id} />}
     </div>
   );
 }

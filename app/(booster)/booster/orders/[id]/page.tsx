@@ -4,11 +4,13 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import {
   markBoosterMessagesRead,
+  notifyCustomer,
   sendBoosterMessage,
 } from "@/app/(booster)/booster/orders/[id]/actions";
 import { CredentialReveal } from "@/components/booster/credential-reveal";
 import { ProgressControls } from "@/components/booster/progress-controls";
 import { OrderChat } from "@/components/chat/order-chat";
+import { NotifyButton } from "@/components/notifications/notify-button";
 import { ProgressTimeline, type OrderProgressRow } from "@/components/orders/progress-timeline";
 import { OrderStatusBadge } from "@/components/orders/status-badge";
 import { requireBooster } from "@/lib/auth/session";
@@ -246,7 +248,20 @@ export default async function BoosterOrderDetailPage({
       </div>
 
       {!chatHidden && (
-        <div className="mt-6">
+        <div className="mt-6 space-y-3">
+          {isAssignedBooster && !chatReadOnly && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/40 p-4">
+              <p className="text-sm text-muted-foreground">
+                Need the customer&rsquo;s attention? Email them that a message is waiting.
+              </p>
+              <NotifyButton
+                action={notifyCustomer.bind(null, order.id)}
+                label="Notify customer"
+                sentLabel="Customer emailed"
+                hint="Sends an email (and a popup if they're online) — no message content included."
+              />
+            </div>
+          )}
           <OrderChat
             orderId={order.id}
             currentUserId={user.id}

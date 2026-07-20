@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Clock, ShieldCheck, Star } from "lucide-react";
 import { OrderChat } from "@/components/chat/order-chat";
+import { NotifyButton } from "@/components/notifications/notify-button";
 import { CredentialForm } from "@/components/orders/credential-form";
 import { ProgressTimeline, type OrderProgressRow } from "@/components/orders/progress-timeline";
 import { ReviewForm } from "@/components/orders/review-form";
@@ -25,7 +26,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isServiceRoleConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
-import { markMessagesRead, sendOrderMessage } from "./actions";
+import { markMessagesRead, notifyBooster, sendOrderMessage } from "./actions";
 
 export const metadata: Metadata = {
   title: "Order details",
@@ -89,6 +90,9 @@ interface ReviewRow {
 
 /** Terminal orders keep chat history readable but need no more coordination. */
 const CHAT_READONLY_STATUSES: readonly OrderStatus[] = ["completed", "refunded"];
+
+/** Statuses where pinging the booster makes sense (work is live). */
+const NOTIFY_BOOSTER_STATUSES: readonly OrderStatus[] = ["assigned", "in_progress", "paused"];
 
 /** Piloted orders accept credentials only while there is work left to start/finish. */
 const CREDENTIAL_WINDOW_STATUSES: readonly OrderStatus[] = [
@@ -219,7 +223,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const order = data as OrderRow | null;
   if (!order) notFound();
 
-  const [rows, paymentsResult, progressResult, messagesResult, reviewResult] = await Promise.all([
+  const [rows, paymentsResult, progressResult, messagesResult, reviewResult, assignmentResult] =
+    await Promise.all([
     buildSummaryRows(order),
     // RLS `payments_select_owner_or_admin` lets participants read payment rows.
     supabase
@@ -247,11 +252,21 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       .select("id, rating, body, is_published, created_at")
       .eq("order_id", order.id)
       .maybeSingle(),
+    // Whether a booster is actively assigned — gates the "Notify booster"
+    // button. order_assignments_select returns this row to the owner via
+    // can_access_order (no booster identity is read; only that one exists).
+    supabase
+      .from("order_assignments")
+      .select("id")
+      .eq("order_id", order.id)
+      .eq("is_active", true)
+      .maybeSingle(),
   ]);
   const payments = (paymentsResult.data ?? []) as PaymentRow[];
   const progress = (progressResult.data ?? []) as OrderProgressRow[];
   const messages = ((messagesResult.data ?? []) as ChatMessageRow[]).reverse();
   const review = reviewResult.data as ReviewRow | null;
+  const hasActiveBooster = Boolean(assignmentResult.data);
 
   // Credential intake is owner-only UI; storeOrderCredentials re-verifies
   // ownership + piloted + status server-side regardless of what renders here.
@@ -355,7 +370,20 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           markMessagesRead re-verify identity + participation server-side —
           the binding is convenience, never authorization. */}
       {order.status !== "cancelled" && (
-        <div className="mt-6">
+        <div className="mt-6 space-y-3">
+          {hasActiveBooster && NOTIFY_BOOSTER_STATUSES.includes(order.status) && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/40 p-4">
+              <p className="text-sm text-muted-foreground">
+                Waiting on your booster? Send a live ping — they&rsquo;re notified instantly.
+              </p>
+              <NotifyButton
+                action={notifyBooster.bind(null, order.id)}
+                label="Notify booster"
+                sentLabel="Booster notified"
+                hint="They get a chime + popup while they have the site open."
+              />
+            </div>
+          )}
           <OrderChat
             orderId={order.id}
             currentUserId={user.id}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Gamepad2 } from "lucide-react";
+import { NotificationListener } from "@/components/notifications/notification-listener";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { requireBooster } from "@/lib/auth/session";
@@ -16,7 +17,7 @@ import { requireBooster } from "@/lib/auth/session";
  * assignment is revoked mid-session simply stops seeing the order.
  */
 export default async function BoosterLayout({ children }: { children: React.ReactNode }) {
-  await requireBooster();
+  const { user } = await requireBooster();
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -34,6 +35,7 @@ export default async function BoosterLayout({ children }: { children: React.Reac
       </div>
       <main className="flex-1">{children}</main>
       <SiteFooter />
+      <NotificationListener userId={user.id} orderHrefBase="/booster/orders" />
     </div>
   );
 }

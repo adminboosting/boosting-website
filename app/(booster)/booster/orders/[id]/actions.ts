@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import type { SendMessageResult } from "@/components/chat/order-chat";
+import type { NotifyResult } from "@/components/notifications/notify-button";
 import { requireUser } from "@/lib/auth/session";
 import { decryptCredentials, isVaultConfigured } from "@/lib/credentials/vault";
+import { sendEmail } from "@/lib/email/send";
+import { boosterMessageEmail } from "@/lib/email/templates";
+import { createNotification } from "@/lib/notifications/create";
 import { applyBp } from "@/lib/money";
 import {
   assertTransition,
@@ -333,6 +337,77 @@ export async function revealOrderCredentials(orderId: string): Promise<RevealCre
     // it could carry partial plaintext buffers.
     return { ok: false, error: "Stored credentials could not be decrypted — ask the customer to resubmit." };
   }
+}
+
+/** Ignore repeat customer notifications for the same order inside this window (seconds). */
+const CUSTOMER_NOTIFY_COOLDOWN_S = 60;
+
+/**
+ * Booster → customer notification ("Notify customer"). Unlike the customer's
+ * live ping, the customer is NOT expected to have the site open, so the primary
+ * channel is EMAIL (from @rankedfrogs.com via Resend) — an in-app notification
+ * is also dropped so an online customer gets the popup too.
+ *
+ * The active-assignment check is the authorization (verifyOwnActiveAssignment,
+ * user-scoped). The customer's email is read through the SERVICE ROLE:
+ * profiles_select_self_or_admin does not let a booster read the customer's
+ * profile, and boosters never see customer PII in the UI — so the address is
+ * fetched server-side and never returned to the client. The email body is
+ * content-free (just "you have a message, open your order") because the chat
+ * thread can contain account details.
+ */
+export async function notifyCustomer(orderId: string): Promise<NotifyResult> {
+  const user = await requireUser();
+
+  if (typeof orderId !== "string" || !uuidSchema.safeParse(orderId).success) {
+    return { ok: false, error: "Unknown order." };
+  }
+
+  const supabase = await createClient();
+  if (!(await verifyOwnActiveAssignment(supabase, orderId, user.id))) {
+    return { ok: false, error: "You're not assigned to this order." };
+  }
+
+  // Customer address + name via the service role (boosters can't read the
+  // customer's profile under RLS, and must not — this stays server-side).
+  if (!isServiceRoleConfigured()) {
+    return { ok: false, error: "Notifications aren't configured on this deployment." };
+  }
+  const admin = createAdminClient();
+  const { data: orderData } = await admin
+    .from("orders")
+    .select("user_id, profiles!orders_user_id_fkey (email, display_name)")
+    .eq("id", orderId)
+    .maybeSingle();
+  const owner = orderData as {
+    user_id: string;
+    profiles: { email: string | null; display_name: string | null } | null;
+  } | null;
+  if (!owner) return { ok: false, error: "Order not found." };
+
+  // In-app ping so an online customer also sees the popup (best-effort).
+  await createNotification({
+    recipientId: owner.user_id,
+    actorId: user.id,
+    orderId,
+    kind: "customer_message",
+    title: "Message from your booster",
+    body: `Your booster on order #${orderId.slice(0, 8)} sent you a message — open the order to read it.`,
+    cooldownSeconds: CUSTOMER_NOTIFY_COOLDOWN_S,
+  });
+
+  // Email is the reliable channel — the customer may be offline.
+  const email = owner.profiles?.email;
+  if (!email) {
+    // No address on file: the in-app ping above is the only delivery. Treat as
+    // success so the booster isn't stuck (nothing more they can do).
+    return { ok: true, delivered: false };
+  }
+  const sent = await sendEmail(
+    boosterMessageEmail({ to: email, orderId, displayName: owner.profiles?.display_name }),
+  );
+  if (!sent.ok) return { ok: false, error: "Couldn't email the customer — try again shortly." };
+  return { ok: true, delivered: true };
 }
 
 /**
