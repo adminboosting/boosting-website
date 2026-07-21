@@ -10,7 +10,7 @@ import {
   type ChatMessageRow,
 } from "@/lib/realtime/order-chat-channel";
 import { chatMessageSchema } from "@/lib/schemas/chat";
-import { createClient } from "@/lib/supabase/client";
+import { createRealtimeClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 /**
@@ -81,46 +81,56 @@ export function OrderChat({
 
   // --- realtime subscription (one channel, torn down on unmount) -----------
   useEffect(() => {
-    const supabase = createClient();
-    const unsubscribe = subscribeToOrderMessages(
-      supabase,
-      orderId,
-      (incoming) => setMessages((prev) => mergeMessage(prev, incoming)),
-      (status) => {
-        const ok = status === "SUBSCRIBED";
-        liveRef.current = ok;
-        setLive(ok);
-        if (!ok && process.env.NODE_ENV !== "production") {
-          // Deliberately visible in dev: usually means 0007 hasn't been
-          // applied (RUNBOOK: verify Database → Publications), or the session
-          // token is bad — a silent channel would otherwise look like a bug.
-          console.warn(`[order-chat] realtime channel not live (${status}); polling instead.`);
-        }
-      },
-    );
+    let cancelled = false;
+    let unsubscribe = () => {};
+    let poll: ReturnType<typeof setInterval> | undefined;
 
-    // Polling fallback: only fires while the channel is not SUBSCRIBED.
-    // Same RLS-scoped client, so a revoked booster just gets an empty page
-    // (treated as "assignment ended", not an error).
-    const poll = setInterval(() => {
-      if (liveRef.current === true) return;
-      void supabase
-        .from("order_messages")
-        .select("id, order_id, sender_id, body, is_system, created_at")
-        .eq("order_id", orderId)
-        .order("created_at", { ascending: true })
-        .limit(100)
-        .then(({ data }) => {
-          if (data) {
-            setMessages((prev) =>
-              (data as ChatMessageRow[]).reduce((acc, row) => mergeMessage(acc, row), prev),
-            );
+    // Authenticate the realtime socket BEFORE subscribing — an anon join is
+    // RLS-filtered to zero rows and delivers nothing (silently), which would
+    // leave chat stuck on its polling fallback forever.
+    void createRealtimeClient().then((supabase) => {
+      if (cancelled) return;
+      unsubscribe = subscribeToOrderMessages(
+        supabase,
+        orderId,
+        (incoming) => setMessages((prev) => mergeMessage(prev, incoming)),
+        (status) => {
+          const ok = status === "SUBSCRIBED";
+          liveRef.current = ok;
+          setLive(ok);
+          if (!ok && process.env.NODE_ENV !== "production") {
+            // Deliberately visible in dev: usually means 0007 hasn't been
+            // applied (RUNBOOK: verify Database → Publications), or the session
+            // token is bad — a silent channel would otherwise look like a bug.
+            console.warn(`[order-chat] realtime channel not live (${status}); polling instead.`);
           }
-        });
-    }, POLL_INTERVAL_MS);
+        },
+      );
+
+      // Polling fallback: only fires while the channel is not SUBSCRIBED.
+      // Same RLS-scoped client, so a revoked booster just gets an empty page
+      // (treated as "assignment ended", not an error).
+      poll = setInterval(() => {
+        if (liveRef.current === true) return;
+        void supabase
+          .from("order_messages")
+          .select("id, order_id, sender_id, body, is_system, created_at")
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: true })
+          .limit(100)
+          .then(({ data }) => {
+            if (data) {
+              setMessages((prev) =>
+                (data as ChatMessageRow[]).reduce((acc, row) => mergeMessage(acc, row), prev),
+              );
+            }
+          });
+      }, POLL_INTERVAL_MS);
+    });
 
     return () => {
-      clearInterval(poll);
+      cancelled = true;
+      if (poll) clearInterval(poll);
       unsubscribe();
     };
   }, [orderId]);

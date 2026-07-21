@@ -8,7 +8,7 @@ import {
   subscribeToNotifications,
   type NotificationRow,
 } from "@/lib/realtime/notifications-channel";
-import { createClient } from "@/lib/supabase/client";
+import { createRealtimeClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 /**
@@ -124,13 +124,22 @@ export function NotificationListener({
 
   useEffect(() => {
     if (!userId) return;
-    const supabase = createClient();
-    const unsubscribe = subscribeToNotifications(supabase, userId, push, (status) => {
-      if (status !== "SUBSCRIBED" && process.env.NODE_ENV !== "production") {
-        console.warn(`[notifications] channel not live (${status}); popups disabled.`);
-      }
+    let cancelled = false;
+    let unsubscribe = () => {};
+    // Authenticate the realtime socket BEFORE subscribing — an anon join is
+    // RLS-filtered to zero rows and would silently deliver nothing.
+    void createRealtimeClient().then((supabase) => {
+      if (cancelled) return;
+      unsubscribe = subscribeToNotifications(supabase, userId, push, (status) => {
+        if (status !== "SUBSCRIBED" && process.env.NODE_ENV !== "production") {
+          console.warn(`[notifications] channel not live (${status}); popups disabled.`);
+        }
+      });
     });
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [userId, push]);
 
   if (toasts.length === 0) return null;
